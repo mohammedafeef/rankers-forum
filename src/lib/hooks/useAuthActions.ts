@@ -1,0 +1,152 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { signInWithEmail, signUpWithEmail, signInWithGoogle, signOut, resetPassword, getAuthErrorMessage, AuthError } from '@/lib/firebase/auth';
+import { useAuth } from './useAuth';
+
+interface UseAuthActionsReturn {
+  login: (email: string, password: string) => Promise<void>;
+  registerUser: (data: RegisterData) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
+  logout: () => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
+  loading: boolean;
+  error: string | null;
+  clearError: () => void;
+}
+
+interface RegisterData {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  city?: string;
+  state?: string;
+}
+
+export function useAuthActions(): UseAuthActionsReturn {
+  const router = useRouter();
+  const { refreshUser } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const clearError = () => setError(null);
+
+  const login = async (email: string, password: string) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      await signInWithEmail(email, password);
+      await refreshUser();
+      router.refresh();
+    } catch (e) {
+      const authError = e as AuthError;
+      setError(getAuthErrorMessage(authError));
+      throw e;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (data: RegisterData) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // First, register via API to create user document
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Registration failed');
+      }
+
+      // Then sign in with the credentials
+      await signInWithEmail(data.email, data.password);
+      await refreshUser();
+      router.refresh();
+    } catch (e) {
+      if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        const authError = e as AuthError;
+        setError(getAuthErrorMessage(authError));
+      }
+      throw e;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginWithGoogle = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      await signInWithGoogle();
+      await refreshUser();
+      router.refresh();
+    } catch (e) {
+      const authError = e as AuthError;
+      setError(getAuthErrorMessage(authError));
+      throw e;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      await signOut();
+      
+      // Clear server session
+      await fetch('/api/auth/logout', { method: 'POST' });
+      
+      await refreshUser();
+      router.push('/');
+      router.refresh();
+    } catch (e) {
+      const authError = e as AuthError;
+      setError(getAuthErrorMessage(authError));
+      throw e;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendPasswordReset = async (email: string) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      await resetPassword(email);
+    } catch (e) {
+      const authError = e as AuthError;
+      setError(getAuthErrorMessage(authError));
+      throw e;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    login,
+    registerUser: register,
+    loginWithGoogle,
+    logout,
+    sendPasswordReset,
+    loading,
+    error,
+    clearError,
+  };
+}

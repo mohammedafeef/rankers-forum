@@ -1,0 +1,107 @@
+import { FirestoreTimestamp } from './user';
+
+// ============================================
+// College Types
+// ============================================
+
+export type CollegeType = 'government' | 'private' | 'deemed';
+
+export interface College {
+  id: string;
+  collegeName: string;
+  shortName: string | null;
+  location: string;
+  city: string;
+  state: string;
+  type: CollegeType;
+  isActive: boolean;
+  createdAt: FirestoreTimestamp;
+  updatedAt: FirestoreTimestamp;
+}
+
+export interface CreateCollegeInput {
+  collegeName: string;
+  shortName?: string;
+  location: string;
+  city: string;
+  state: string;
+  type: CollegeType;
+}
+
+// ============================================
+// College Rank Cutoff Types
+// ============================================
+
+export interface CollegeRankCutoff {
+  id: string;
+  collegeId: string;
+  // Denormalized for queries
+  collegeName: string;
+  collegeLocation: string;
+  collegeType: CollegeType;
+  // Cutoff data
+  branch: string;
+  year: number;
+  category: string;
+  quota: string;
+  openingRank: number;
+  closingRank: number;
+  createdAt: FirestoreTimestamp;
+}
+
+export interface CreateCutoffInput {
+  collegeId: string;
+  collegeName: string;
+  collegeLocation: string;
+  collegeType: CollegeType;
+  branch: string;
+  year: number;
+  category: string;
+  quota: string;
+  openingRank: number;
+  closingRank: number;
+}
+
+// ============================================
+// Chance Indicator
+// ============================================
+
+export type ChanceLevel = 'high' | 'moderate' | 'low' | 'not_eligible';
+
+export interface CollegeWithChance extends CollegeRankCutoff {
+  chance: ChanceLevel;
+  chanceLabel: string;
+}
+
+// ============================================
+// Excel Upload Types
+// ============================================
+
+export type UploadStatus = 'processing' | 'completed' | 'failed';
+
+export interface ExcelUploadLog {
+  id: string;
+  uploadedBy: string;
+  year: number;
+  fileName: string;
+  totalRows: number;
+  processedRows: number;
+  failedRows: number;
+  errorLog: string[];
+  status: UploadStatus;
+  createdAt: FirestoreTimestamp;
+  completedAt: FirestoreTimestamp | null;
+}
+
+// ============================================
+// Dashboard Stats
+// ============================================
+
+export interface DashboardStats {
+  id: string;
+  totalRegistrations: number;
+  totalInfoFilled: number;
+  totalRequests: number;
+  pendingCallbacks: number;
+  updatedAt: FirestoreTimestamp;
+}

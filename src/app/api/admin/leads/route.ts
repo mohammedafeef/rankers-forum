@@ -1,0 +1,75 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { adminAuth } from '@/lib/firebase/admin';
+import { getUserById } from '@/lib/services/users';
+import { getLeads } from '@/lib/services/leads';
+import { LeadStatus } from '@/types';
+
+/**
+ * Helper to verify session and require admin/super_admin role
+ */
+async function verifyAdminSession(request: NextRequest): Promise<{ uid: string; role: string } | null> {
+  const sessionCookie = request.cookies.get('session')?.value;
+  
+  if (!sessionCookie) {
+    return null;
+  }
+
+  try {
+    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
+    const user = await getUserById(decoded.uid);
+    
+    if (!user || !['admin', 'super_admin'].includes(user.role)) {
+      return null;
+    }
+    
+    return { uid: decoded.uid, role: user.role };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * GET /api/admin/leads - Get leads (filtered by role)
+ * Super admin sees all, admin sees only assigned
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const session = await verifyAdminSession(request);
+    
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const searchParams = request.nextUrl.searchParams;
+    const status = searchParams.get('status') as LeadStatus | null;
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const startAfter = searchParams.get('startAfter') || undefined;
+
+    // Admin only sees their assigned leads
+    // Super admin sees all
+    const options: {
+      status?: LeadStatus;
+      assignedAdminId?: string;
+      limit: number;
+      startAfter?: string;
+    } = {
+      limit,
+      startAfter,
+    };
+
+    if (status) {
+      options.status = status;
+    }
+
+    if (session.role === 'admin') {
+      options.assignedAdminId = session.uid;
+    }
+
+    const leads = await getLeads(options);
+
+    return NextResponse.json({ leads });
+  } catch (error) {
+    console.error('Get leads error:', error);
+    return NextResponse.json({ error: 'Failed to get leads' }, { status: 500 });
+  }
+}
