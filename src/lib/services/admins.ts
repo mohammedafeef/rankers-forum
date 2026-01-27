@@ -110,10 +110,9 @@ export async function getAdminWithUser(userId: string): Promise<AdminWithUser | 
 export async function getAllAdmins(): Promise<AdminWithUser[]> {
   const usersSnapshot = await usersCollection
     .where('role', 'in', ['admin', 'super_admin'])
-    .orderBy('createdAt', 'desc')
     .get();
   
-  const admins: AdminWithUser[] = [];
+  const admins: AdminWithUser[] = [];;
   
   for (const userDoc of usersSnapshot.docs) {
     const adminDoc = await adminsCollection.doc(userDoc.id).get();

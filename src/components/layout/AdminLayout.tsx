@@ -10,10 +10,12 @@ import {
   Building2, 
   UserCog,
   UserCircle,
+  LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/lib/hooks';
 import { LogoutModal } from '@/components/modals';
 import { cn } from '@/lib/utils';
+import { Button } from '../ui/button';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -87,14 +89,19 @@ export function AdminLayout({ children, title, actions }: AdminLayoutProps) {
                 {user?.role === 'super_admin' ? 'Super Admin' : 'Admin'}
               </p>
             </div>
+            
           </div>
+            <Button 
+            variant="outline" 
+            className="w-full mt-4" 
+            size="sm"
+            onClick={() => setLogoutOpen(true)}
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
         </div>
-         <button
-    onClick={() => setLogoutOpen(true)}
-    className="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 rounded-lg transition"
-  >
-    Logout
-  </button>
+       
       </aside>
 
       {/* Main Content */}

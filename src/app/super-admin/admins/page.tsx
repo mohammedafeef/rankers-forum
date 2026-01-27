@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Upload, Edit, Download, Users, UserPlus } from 'lucide-react';
+import { Loader2, Upload, Edit, Download, Users, UserPlus, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -132,13 +132,9 @@ export default function AdminManagementPage() {
       title="Admin Management"
       actions={
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm">
-            <Upload className="h-4 w-4 mr-2" />
-            Upload
-          </Button>
           <Button size="sm" onClick={() => setCreateModalOpen(true)}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
+            <Plus className="h-4 w-4 mr-2" />
+            Create Admin
           </Button>
         </div>
       }
