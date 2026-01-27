@@ -89,6 +89,12 @@ export function AdminLayout({ children, title, actions }: AdminLayoutProps) {
             </div>
           </div>
         </div>
+         <button
+    onClick={() => setLogoutOpen(true)}
+    className="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 rounded-lg transition"
+  >
+    Logout
+  </button>
       </aside>
 
       {/* Main Content */}
@@ -103,8 +109,10 @@ export function AdminLayout({ children, title, actions }: AdminLayoutProps) {
         <main className="p-8">
           {children}
         </main>
+        
       </div>
 
+        
       <LogoutModal open={logoutOpen} onOpenChange={setLogoutOpen} />
     </div>
   );
