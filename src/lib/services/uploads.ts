@@ -15,51 +15,43 @@ const uploadsCollection = adminDb.collection(COLLECTIONS.EXCEL_UPLOAD_LOGS);
 // Expected column headers in the Excel file
 const EXPECTED_COLUMNS = [
   'College Name',
-  'Location',
-  'Type',
-  'Branch',
-  'Year',
   'Category',
-  'Quota',
-  'Opening Rank',
-  'Closing Rank',
+  'Course Name',
+  'Course Code',
+  'Rank',
+  'Fee',
 ] as const;
 
 interface ExcelRow {
   'College Name': string;
-  'Location': string;
-  'Type': string;
-  'Branch': string;
-  'Year': number;
+  'Location'?: string;
+  'Type'?: string;
   'Category': string;
-  'Quota': string;
-  'Opening Rank': number;
-  'Closing Rank': number;
+  'Course Name': string;
+  'Course Code': string;
+  'Rank': number;
+  'Fee': number;
 }
 
 /**
- * Parse location into city and state
+ * Parse location (single field)
  */
-function parseLocation(location: string): { city: string; state: string } {
-  const parts = location.split(',').map(s => s.trim());
-  
-  if (parts.length >= 2) {
-    return {
-      city: parts[0],
-      state: parts[parts.length - 1],
-    };
+function parseLocation(location?: string): string {
+  if (!location || location.trim() === '') {
+    return '';
   }
   
-  return {
-    city: location,
-    state: '',
-  };
+  return location.trim();
 }
 
 /**
  * Normalize college type from Excel
  */
-function normalizeCollegeType(type: string): CollegeType {
+function normalizeCollegeType(type?: string): CollegeType | undefined {
+  if (!type || type.trim() === '') {
+    return undefined; // Return undefined when no type provided
+  }
+  
   const normalized = type.toLowerCase().trim();
   
   if (normalized.includes('government') || normalized.includes('govt')) {
@@ -80,29 +72,21 @@ function validateRow(row: Record<string, unknown>, rowIndex: number): { valid: b
   if (!row['College Name']) {
     errors.push(`Row ${rowIndex}: Missing College Name`);
   }
-  if (!row['Location']) {
-    errors.push(`Row ${rowIndex}: Missing Location`);
-  }
-  if (!row['Type']) {
-    errors.push(`Row ${rowIndex}: Missing Type`);
-  }
-  if (!row['Branch']) {
-    errors.push(`Row ${rowIndex}: Missing Branch`);
-  }
-  if (!row['Year'] || isNaN(Number(row['Year']))) {
-    errors.push(`Row ${rowIndex}: Invalid Year`);
-  }
+  
   if (!row['Category']) {
     errors.push(`Row ${rowIndex}: Missing Category`);
   }
-  if (!row['Quota']) {
-    errors.push(`Row ${rowIndex}: Missing Quota`);
+  if (!row['Course Name']) {
+    errors.push(`Row ${rowIndex}: Missing Course Name`);
   }
-  if (!row['Opening Rank'] || isNaN(Number(row['Opening Rank']))) {
-    errors.push(`Row ${rowIndex}: Invalid Opening Rank`);
+  if (!row['Course Code']) {
+    errors.push(`Row ${rowIndex}: Missing Course Code`);
   }
-  if (!row['Closing Rank'] || isNaN(Number(row['Closing Rank']))) {
-    errors.push(`Row ${rowIndex}: Invalid Closing Rank`);
+  if (!row['Rank'] || isNaN(Number(row['Rank']))) {
+    errors.push(`Row ${rowIndex}: Invalid Rank`);
+  }
+  if (!row['Fee'] || isNaN(Number(row['Fee']))) {
+    errors.push(`Row ${rowIndex}: Invalid Fee`);
   }
   
   return {
@@ -156,7 +140,8 @@ export async function updateUploadLog(
 export async function processExcelUpload(
   buffer: Buffer,
   uploadedBy: string,
-  fileName: string
+  fileName: string,
+  year: number
 ): Promise<ExcelUploadLog> {
   // Parse Excel file
   const workbook = XLSX.read(buffer, { type: 'buffer' });
@@ -176,9 +161,6 @@ export async function processExcelUpload(
   if (missingColumns.length > 0) {
     throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
   }
-  
-  // Determine year from first row (assumes all rows are same year)
-  const year = Number(rows[0]['Year']);
   
   // Create upload log
   const uploadLog = await createUploadLog(uploadedBy, year, fileName, rows.length);
@@ -203,15 +185,15 @@ export async function processExcelUpload(
         }
         
         // Parse location
-        const { city, state } = parseLocation(row['Location']);
+        const location = parseLocation(row['Location']);
         const collegeType = normalizeCollegeType(row['Type']);
         
         // Get or create college
         const collegeInput: CreateCollegeInput = {
           collegeName: row['College Name'],
-          location: row['Location'],
-          city,
-          state,
+          location: location,
+          city: '',
+          state: '',
           type: collegeType,
         };
         
@@ -220,18 +202,16 @@ export async function processExcelUpload(
         // Check for existing cutoff
         const existingCutoff = await findCutoff(
           college.id,
-          row['Branch'],
-          Number(row['Year']),
-          row['Category'],
-          row['Quota']
+          row['Course Name'],
+          year,
+          row['Category']
         );
         
         if (existingCutoff) {
           // Update existing cutoff
           await updateCutoff(
             existingCutoff.id,
-            Number(row['Opening Rank']),
-            Number(row['Closing Rank'])
+            Number(row['Rank'])
           );
         } else {
           // Create new cutoff
@@ -240,12 +220,11 @@ export async function processExcelUpload(
             collegeName: college.collegeName,
             collegeLocation: college.location,
             collegeType: college.type,
-            branch: row['Branch'],
-            year: Number(row['Year']),
+            courseName: row['Course Name'],
+            courseCode: row['Course Code'],
+            year: year,
             category: row['Category'],
-            quota: row['Quota'],
-            openingRank: Number(row['Opening Rank']),
-            closingRank: Number(row['Closing Rank']),
+            rank: Number(row['Rank']),
           };
           
           await createCutoff(cutoffInput);

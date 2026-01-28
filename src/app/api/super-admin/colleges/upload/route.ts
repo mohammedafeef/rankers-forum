@@ -67,9 +67,14 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    const year = parseInt(formData.get('year') as string);
 
     if (!file) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+    }
+
+    if (!year || isNaN(year)) {
+      return NextResponse.json({ error: 'Invalid year provided' }, { status: 400 });
     }
 
     // Validate file type
@@ -82,7 +87,7 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(bytes);
 
     // Process the upload
-    const result = await processExcelUpload(buffer, superAdminUid, file.name);
+    const result = await processExcelUpload(buffer, superAdminUid, file.name, year);
 
     return NextResponse.json({
       success: true,

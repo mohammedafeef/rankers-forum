@@ -51,6 +51,7 @@ export async function createCollege(data: CreateCollegeInput): Promise<College> 
   const college: Omit<College, 'id'> = {
     ...data,
     shortName: data.shortName || null,
+    type: data.type || '', 
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -156,17 +157,15 @@ export async function createCutoff(data: CreateCutoffInput): Promise<CollegeRank
  */
 export async function findCutoff(
   collegeId: string,
-  branch: string,
+  courseName: string,
   year: number,
-  category: string,
-  quota: string
+  category: string
 ): Promise<CollegeRankCutoff | null> {
   const snapshot = await cutoffsCollection
     .where('collegeId', '==', collegeId)
-    .where('branch', '==', branch)
+    .where('courseName', '==', courseName)
     .where('year', '==', year)
     .where('category', '==', category)
-    .where('quota', '==', quota)
     .limit(1)
     .get();
   
@@ -183,12 +182,10 @@ export async function findCutoff(
  */
 export async function updateCutoff(
   id: string,
-  openingRank: number,
-  closingRank: number
+  rank: number
 ): Promise<void> {
   await cutoffsCollection.doc(id).update({
-    openingRank,
-    closingRank,
+    rank,
   });
 }
 
@@ -197,20 +194,18 @@ export async function updateCutoff(
  */
 export async function getEligibleColleges(options: {
   studentRank: number;
-  branch: string;
+  courseName: string;
   category: string;
-  quota: string;
   year: number;
   collegeType?: CollegeType;
   state?: string;
 }): Promise<CollegeWithChance[]> {
   let query = cutoffsCollection
-    .where('branch', '==', options.branch)
-    .where('category', '==', options.category)
-    .where('quota', '==', options.quota)
+    .where('courseName', '==', options.courseName)
     .where('year', '==', options.year)
-    .where('closingRank', '>=', options.studentRank)
-    .orderBy('closingRank');
+    .where('category', '==', options.category)
+    .where('rank', '>=', options.studentRank)
+    .orderBy('rank');
   
   if (options.collegeType) {
     query = query.where('collegeType', '==', options.collegeType);
@@ -220,7 +215,7 @@ export async function getEligibleColleges(options: {
   
   let results = snapshot.docs.map(doc => {
     const data = doc.data() as Omit<CollegeRankCutoff, 'id'>;
-    const chance = calculateChance(options.studentRank, data.closingRank);
+    const chance = calculateChance(options.studentRank, data.rank);
     
     return {
       id: doc.id,
@@ -243,9 +238,8 @@ export async function getEligibleColleges(options: {
  */
 export async function getPreviousYearCutoffs(options: {
   studentRank: number;
-  branch: string;
+  courseName: string;
   category: string;
-  quota: string;
   currentYear: number;
   yearsBack?: number;
   collegeType?: CollegeType;
@@ -258,9 +252,8 @@ export async function getPreviousYearCutoffs(options: {
     const year = options.currentYear - i;
     const colleges = await getEligibleColleges({
       studentRank: options.studentRank,
-      branch: options.branch,
+      courseName: options.courseName,
       category: options.category,
-      quota: options.quota,
       year,
       collegeType: options.collegeType,
       state: options.state,
@@ -278,7 +271,6 @@ export async function getPreviousYearCutoffs(options: {
 export async function getCutoffsByYear(year: number): Promise<CollegeRankCutoff[]> {
   const snapshot = await cutoffsCollection
     .where('year', '==', year)
-    .orderBy('collegeName')
     .get();
   
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CollegeRankCutoff));

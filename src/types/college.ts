@@ -4,7 +4,7 @@ import { FirestoreTimestamp } from './user';
 // College Types
 // ============================================
 
-export type CollegeType = 'government' | 'private' | 'deemed';
+export type CollegeType = 'government' | 'private' | 'deemed' | '';
 
 export interface College {
   id: string;
@@ -25,7 +25,7 @@ export interface CreateCollegeInput {
   location: string;
   city: string;
   state: string;
-  type: CollegeType;
+  type?: CollegeType;
 }
 
 // ============================================
@@ -39,13 +39,12 @@ export interface CollegeRankCutoff {
   collegeName: string;
   collegeLocation: string;
   collegeType: CollegeType;
-  // Cutoff data
-  branch: string;
+  // Course data
+  courseName: string;
+  courseCode: string;
   year: number;
   category: string;
-  quota: string;
-  openingRank: number;
-  closingRank: number;
+  rank: number;
   createdAt: FirestoreTimestamp;
 }
 
@@ -54,12 +53,11 @@ export interface CreateCutoffInput {
   collegeName: string;
   collegeLocation: string;
   collegeType: CollegeType;
-  branch: string;
+  courseName: string;
+  courseCode: string;
   year: number;
   category: string;
-  quota: string;
-  openingRank: number;
-  closingRank: number;
+  rank: number;
 }
 
 // ============================================
