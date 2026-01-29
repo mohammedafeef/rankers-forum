@@ -6,36 +6,13 @@ import { FirestoreTimestamp } from './user';
 
 export type CollegeType = 'government' | 'private' | 'deemed' | '';
 
-export interface College {
-  id: string;
-  collegeName: string;
-  shortName: string | null;
-  location: string;
-  city: string;
-  state: string;
-  type: CollegeType;
-  isActive: boolean;
-  createdAt: FirestoreTimestamp;
-  updatedAt: FirestoreTimestamp;
-}
-
-export interface CreateCollegeInput {
-  collegeName: string;
-  shortName?: string;
-  location: string;
-  city: string;
-  state: string;
-  type?: CollegeType;
-}
-
 // ============================================
 // College Rank Cutoff Types
 // ============================================
 
 export interface CollegeRankCutoff {
   id: string;
-  collegeId: string;
-  // Denormalized for queries
+  // All data denormalized - no foreign keys
   collegeName: string;
   collegeLocation: string;
   collegeType: CollegeType;
@@ -46,18 +23,6 @@ export interface CollegeRankCutoff {
   category: string;
   rank: number;
   createdAt: FirestoreTimestamp;
-}
-
-export interface CreateCutoffInput {
-  collegeId: string;
-  collegeName: string;
-  collegeLocation: string;
-  collegeType: CollegeType;
-  courseName: string;
-  courseCode: string;
-  year: number;
-  category: string;
-  rank: number;
 }
 
 // ============================================

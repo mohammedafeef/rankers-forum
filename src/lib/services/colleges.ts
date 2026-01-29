@@ -1,18 +1,19 @@
 import { adminDb } from '../firebase/admin';
 import { COLLECTIONS } from '../constants';
-import { 
-  College, 
-  CreateCollegeInput, 
-  CollegeRankCutoff, 
-  CreateCutoffInput,
+import {
+  CollegeRankCutoff,
   CollegeWithChance,
   ChanceLevel,
   CollegeType,
 } from '@/types';
 import { Timestamp } from 'firebase-admin/firestore';
 
-const collegesCollection = adminDb.collection(COLLECTIONS.COLLEGES);
 const cutoffsCollection = adminDb.collection(COLLECTIONS.COLLEGE_RANK_CUTOFFS);
+const locationsCollection = adminDb.collection(COLLECTIONS.LOCATIONS);
+
+// ============================================
+// Chance Calculation
+// ============================================
 
 /**
  * Calculate chance level based on student rank vs closing rank
@@ -21,10 +22,10 @@ export function calculateChance(studentRank: number, closingRank: number): Chanc
   if (studentRank > closingRank) {
     return 'not_eligible';
   }
-  
+
   const margin = closingRank - studentRank;
   const percentage = (margin / closingRank) * 100;
-  
+
   if (percentage >= 20) return 'high';
   if (percentage >= 10) return 'moderate';
   return 'low';
@@ -42,151 +43,65 @@ export function getChanceLabel(chance: ChanceLevel): string {
   }
 }
 
+// ============================================
+// Cutoff Functions
+// ============================================
+
 /**
- * Create a new college
+ * Bulk create cutoffs using batched writes
  */
-export async function createCollege(data: CreateCollegeInput): Promise<College> {
+export async function bulkCreateCutoffs(
+  cutoffs: Omit<CollegeRankCutoff, 'id' | 'createdAt'>[]
+): Promise<number> {
+  const BATCH_SIZE = 500;
   const now = Timestamp.now();
-  
-  const college: Omit<College, 'id'> = {
-    ...data,
-    shortName: data.shortName || null,
-    type: data.type || '', 
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  };
+  let totalWritten = 0;
 
-  const docRef = await collegesCollection.add(college);
-  
-  return { id: docRef.id, ...college } as College;
+  for (let i = 0; i < cutoffs.length; i += BATCH_SIZE) {
+    const batch = adminDb.batch();
+    const chunk = cutoffs.slice(i, i + BATCH_SIZE);
+
+    for (const cutoff of chunk) {
+      const docRef = cutoffsCollection.doc();
+      batch.set(docRef, {
+        ...cutoff,
+        createdAt: now,
+      });
+    }
+
+    await batch.commit();
+    totalWritten += chunk.length;
+  }
+
+  return totalWritten;
 }
 
 /**
- * Get college by ID
+ * Delete all cutoffs for a specific year
  */
-export async function getCollegeById(id: string): Promise<College | null> {
-  const doc = await collegesCollection.doc(id).get();
-  
-  if (!doc.exists) {
-    return null;
-  }
-  
-  return { id: doc.id, ...doc.data() } as College;
-}
+export async function deleteCutoffsByYear(year: number): Promise<number> {
+  const BATCH_SIZE = 500;
+  let totalDeleted = 0;
 
-/**
- * Find college by name and location (for deduplication)
- */
-export async function findCollegeByNameAndLocation(
-  collegeName: string,
-  location: string
-): Promise<College | null> {
-  const snapshot = await collegesCollection
-    .where('collegeName', '==', collegeName)
-    .where('location', '==', location)
-    .limit(1)
-    .get();
-  
-  if (snapshot.empty) {
-    return null;
-  }
-  
-  const doc = snapshot.docs[0];
-  return { id: doc.id, ...doc.data() } as College;
-}
-
-/**
- * Create or get existing college
- */
-export async function getOrCreateCollege(data: CreateCollegeInput): Promise<College> {
-  const existing = await findCollegeByNameAndLocation(data.collegeName, data.location);
-  
-  if (existing) {
-    return existing;
-  }
-  
-  return createCollege(data);
-}
-
-/**
- * Get all colleges with optional filters
- */
-export async function getColleges(options: {
-  type?: CollegeType;
-  state?: string;
-  isActive?: boolean;
-} = {}): Promise<College[]> {
-  let query = collegesCollection.orderBy('collegeName');
-  
-  if (options.type) {
-    query = query.where('type', '==', options.type);
-  }
-  
-  if (options.state) {
-    query = query.where('state', '==', options.state);
-  }
-  
-  if (options.isActive !== undefined) {
-    query = query.where('isActive', '==', options.isActive);
-  }
-  
-  const snapshot = await query.get();
-  
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as College));
-}
-
-/**
- * Create a rank cutoff entry
- */
-export async function createCutoff(data: CreateCutoffInput): Promise<CollegeRankCutoff> {
-  const now = Timestamp.now();
-  
-  const cutoff: Omit<CollegeRankCutoff, 'id'> = {
-    ...data,
-    createdAt: now,
-  };
-
-  const docRef = await cutoffsCollection.add(cutoff);
-  
-  return { id: docRef.id, ...cutoff } as CollegeRankCutoff;
-}
-
-/**
- * Find existing cutoff (for deduplication during upload)
- */
-export async function findCutoff(
-  collegeId: string,
-  courseName: string,
-  year: number,
-  category: string
-): Promise<CollegeRankCutoff | null> {
   const snapshot = await cutoffsCollection
-    .where('collegeId', '==', collegeId)
-    .where('courseName', '==', courseName)
     .where('year', '==', year)
-    .where('category', '==', category)
-    .limit(1)
     .get();
-  
-  if (snapshot.empty) {
-    return null;
-  }
-  
-  const doc = snapshot.docs[0];
-  return { id: doc.id, ...doc.data() } as CollegeRankCutoff;
-}
 
-/**
- * Update an existing cutoff
- */
-export async function updateCutoff(
-  id: string,
-  rank: number
-): Promise<void> {
-  await cutoffsCollection.doc(id).update({
-    rank,
-  });
+  const docs = snapshot.docs;
+
+  for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+    const batch = adminDb.batch();
+    const chunk = docs.slice(i, i + BATCH_SIZE);
+
+    for (const doc of chunk) {
+      batch.delete(doc.ref);
+    }
+
+    await batch.commit();
+    totalDeleted += chunk.length;
+  }
+
+  return totalDeleted;
 }
 
 /**
@@ -198,7 +113,7 @@ export async function getEligibleColleges(options: {
   category: string;
   year: number;
   collegeType?: CollegeType;
-  state?: string;
+  location?: string;
 }): Promise<CollegeWithChance[]> {
   let query = cutoffsCollection
     .where('courseName', '==', options.courseName)
@@ -206,17 +121,17 @@ export async function getEligibleColleges(options: {
     .where('category', '==', options.category)
     .where('rank', '>=', options.studentRank)
     .orderBy('rank');
-  
+
   if (options.collegeType) {
     query = query.where('collegeType', '==', options.collegeType);
   }
-  
+
   const snapshot = await query.get();
-  
+
   let results = snapshot.docs.map(doc => {
     const data = doc.data() as Omit<CollegeRankCutoff, 'id'>;
     const chance = calculateChance(options.studentRank, data.rank);
-    
+
     return {
       id: doc.id,
       ...data,
@@ -224,12 +139,12 @@ export async function getEligibleColleges(options: {
       chanceLabel: getChanceLabel(chance),
     } as CollegeWithChance;
   });
-  
-  // Filter by state if specified (need to filter in memory due to Firestore limitations)
-  if (options.state) {
-    results = results.filter(r => r.collegeLocation.includes(options.state!));
+
+  // Filter by location if specified (done in memory due to Firestore limitations)
+  if (options.location) {
+    results = results.filter(r => r.collegeLocation === options.location);
   }
-  
+
   return results;
 }
 
@@ -243,11 +158,11 @@ export async function getPreviousYearCutoffs(options: {
   currentYear: number;
   yearsBack?: number;
   collegeType?: CollegeType;
-  state?: string;
+  location?: string;
 }): Promise<Record<number, CollegeWithChance[]>> {
   const yearsBack = options.yearsBack || 2;
   const results: Record<number, CollegeWithChance[]> = {};
-  
+
   for (let i = 1; i <= yearsBack; i++) {
     const year = options.currentYear - i;
     const colleges = await getEligibleColleges({
@@ -256,12 +171,12 @@ export async function getPreviousYearCutoffs(options: {
       category: options.category,
       year,
       collegeType: options.collegeType,
-      state: options.state,
+      location: options.location,
     });
-    
+
     results[year] = colleges;
   }
-  
+
   return results;
 }
 
@@ -272,7 +187,7 @@ export async function getCutoffsByYear(year: number): Promise<CollegeRankCutoff[
   const snapshot = await cutoffsCollection
     .where('year', '==', year)
     .get();
-  
+
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CollegeRankCutoff));
 }
 
@@ -280,17 +195,79 @@ export async function getCutoffsByYear(year: number): Promise<CollegeRankCutoff[
  * Get distinct years available in the cutoffs data
  */
 export async function getAvailableYears(): Promise<number[]> {
-  // Firestore doesn't support DISTINCT, so we'll use a different approach
-  // For now, return a fixed list - in production, consider maintaining a metadata document
   const snapshot = await cutoffsCollection
     .orderBy('year', 'desc')
     .limit(100)
     .get();
-  
+
   const years = new Set<number>();
   snapshot.docs.forEach(doc => {
     years.add((doc.data() as CollegeRankCutoff).year);
   });
-  
+
   return Array.from(years).sort((a, b) => b - a);
+}
+
+// ============================================
+// Location Functions
+// ============================================
+
+export interface Location {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+/**
+ * Sync locations - clear existing and add new ones from the upload
+ */
+export async function syncLocations(locationNames: string[]): Promise<number> {
+  const BATCH_SIZE = 500;
+
+  // Get unique, non-empty locations
+  const uniqueLocations = [...new Set(locationNames.filter(l => l && l.trim()))];
+
+  // Clear existing locations
+  const existingSnapshot = await locationsCollection.get();
+  for (let i = 0; i < existingSnapshot.docs.length; i += BATCH_SIZE) {
+    const batch = adminDb.batch();
+    const chunk = existingSnapshot.docs.slice(i, i + BATCH_SIZE);
+    for (const doc of chunk) {
+      batch.delete(doc.ref);
+    }
+    await batch.commit();
+  }
+
+  // Add new locations
+  for (let i = 0; i < uniqueLocations.length; i += BATCH_SIZE) {
+    const batch = adminDb.batch();
+    const chunk = uniqueLocations.slice(i, i + BATCH_SIZE);
+
+    for (const name of chunk) {
+      const docRef = locationsCollection.doc();
+      batch.set(docRef, {
+        name: name.trim(),
+        isActive: true,
+      });
+    }
+
+    await batch.commit();
+  }
+
+  return uniqueLocations.length;
+}
+
+/**
+ * Get all active locations
+ */
+export async function getLocations(): Promise<Location[]> {
+  const snapshot = await locationsCollection
+    .where('isActive', '==', true)
+    .orderBy('name')
+    .get();
+
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  } as Location));
 }

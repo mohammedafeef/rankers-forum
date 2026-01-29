@@ -1,14 +1,12 @@
 import * as XLSX from 'xlsx';
 import { adminDb } from '../firebase/admin';
 import { COLLECTIONS } from '../constants';
-import { 
-  ExcelUploadLog, 
-  CollegeType,
-  CreateCollegeInput,
-  CreateCutoffInput,
+import {
+  ExcelUploadLog,
+  CollegeRankCutoff,
 } from '@/types';
 import { Timestamp } from 'firebase-admin/firestore';
-import { getOrCreateCollege, findCutoff, createCutoff, updateCutoff } from './colleges';
+import { bulkCreateCutoffs, deleteCutoffsByYear, syncLocations } from './colleges';
 
 const uploadsCollection = adminDb.collection(COLLECTIONS.EXCEL_UPLOAD_LOGS);
 
@@ -18,8 +16,8 @@ const EXPECTED_COLUMNS = [
   'Category',
   'Course Name',
   'Course Code',
-  'Rank',
-  'Fee',
+  'All India Rank',
+  'Course Fee',
 ] as const;
 
 interface ExcelRow {
@@ -29,38 +27,20 @@ interface ExcelRow {
   'Category': string;
   'Course Name': string;
   'Course Code': string;
-  'Rank': number;
-  'Fee': number;
+  'All India Rank': number;
+  'Course Fee'?: number;
 }
 
-/**
- * Parse location (single field)
- */
-function parseLocation(location?: string): string {
-  if (!location || location.trim() === '') {
-    return '';
-  }
-  
-  return location.trim();
-}
-
-/**
- * Normalize college type from Excel
- */
-function normalizeCollegeType(type?: string): CollegeType | undefined {
-  if (!type || type.trim() === '') {
-    return undefined; // Return undefined when no type provided
-  }
-  
-  const normalized = type.toLowerCase().trim();
-  
-  if (normalized.includes('government') || normalized.includes('govt')) {
-    return 'government';
-  }
-  if (normalized.includes('deemed')) {
-    return 'deemed';
-  }
-  return 'private';
+interface NormalizedCutoff {
+  collegeName: string;
+  collegeLocation: string;
+  collegeType: string;
+  courseName: string;
+  courseCode: string;
+  courseFee: number;
+  category: string;
+  rank: number;
+  year: number;
 }
 
 /**
@@ -68,11 +48,11 @@ function normalizeCollegeType(type?: string): CollegeType | undefined {
  */
 function validateRow(row: Record<string, unknown>, rowIndex: number): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
-  
+
   if (!row['College Name']) {
     errors.push(`Row ${rowIndex}: Missing College Name`);
   }
-  
+
   if (!row['Category']) {
     errors.push(`Row ${rowIndex}: Missing Category`);
   }
@@ -82,17 +62,60 @@ function validateRow(row: Record<string, unknown>, rowIndex: number): { valid: b
   if (!row['Course Code']) {
     errors.push(`Row ${rowIndex}: Missing Course Code`);
   }
-  if (!row['Rank'] || isNaN(Number(row['Rank']))) {
-    errors.push(`Row ${rowIndex}: Invalid Rank`);
+  if (!row['All India Rank'] || isNaN(Number(row['All India Rank']))) {
+    errors.push(`Row ${rowIndex}: Invalid All India Rank`);
   }
-  if (!row['Fee'] || isNaN(Number(row['Fee']))) {
-    errors.push(`Row ${rowIndex}: Invalid Fee`);
+  if (!row['Course Fee'] || isNaN(Number(row['Course Fee']))) {
+    errors.push(`Row ${rowIndex}: Invalid Course Fee`);
   }
-  
+
   return {
     valid: errors.length === 0,
     errors,
   };
+}
+
+/**
+ * Normalize Excel data in memory - takes LAST occurrence for each unique combination
+ */
+function normalizeExcelData(rows: ExcelRow[], year: number): NormalizedCutoff[] {
+  const map = new Map<string, NormalizedCutoff>();
+
+  for (const row of rows) {
+    // Create unique key for deduplication
+    const key = `${row['College Name']}|${row['Course Name']}|${row['Category']}`;
+
+    // Always overwrite with later row (last wins)
+    map.set(key, {
+      collegeName: row['College Name'],
+      collegeLocation: row['Location']?.trim() || '',
+      collegeType: row['Type']?.trim() || '', // Store as-is, no normalization
+      courseName: row['Course Name'],
+      courseCode: row['Course Code'],
+      courseFee: Number(row['Course Fee']),
+      category: row['Category'],
+      rank: Number(row['All India Rank']),
+      year,
+    });
+  }
+
+  return Array.from(map.values());
+}
+
+/**
+ * Extract unique locations from rows
+ */
+function extractLocations(rows: ExcelRow[]): string[] {
+  const locations = new Set<string>();
+
+  for (const row of rows) {
+    const location = row['Location']?.trim();
+    if (location) {
+      locations.add(location);
+    }
+  }
+
+  return Array.from(locations);
 }
 
 /**
@@ -105,7 +128,7 @@ export async function createUploadLog(
   totalRows: number
 ): Promise<ExcelUploadLog> {
   const now = Timestamp.now();
-  
+
   const log: Omit<ExcelUploadLog, 'id'> = {
     uploadedBy,
     year,
@@ -120,7 +143,7 @@ export async function createUploadLog(
   };
 
   const docRef = await uploadsCollection.add(log);
-  
+
   return { id: docRef.id, ...log } as ExcelUploadLog;
 }
 
@@ -135,7 +158,7 @@ export async function updateUploadLog(
 }
 
 /**
- * Process Excel file for college data upload
+ * Process Excel file for college data upload - OPTIMIZED with bulk operations
  */
 export async function processExcelUpload(
   buffer: Buffer,
@@ -148,116 +171,81 @@ export async function processExcelUpload(
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
   const rows = XLSX.utils.sheet_to_json<ExcelRow>(sheet);
-  
+
   if (rows.length === 0) {
     throw new Error('Excel file is empty');
   }
-  
+
   // Validate headers
   const firstRow = rows[0];
   const headers = Object.keys(firstRow);
   const missingColumns = EXPECTED_COLUMNS.filter(col => !headers.includes(col));
-  
+
   if (missingColumns.length > 0) {
     throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
   }
-  
+
   // Create upload log
   const uploadLog = await createUploadLog(uploadedBy, year, fileName, rows.length);
-  
-  let processedRows = 0;
-  let failedRows = 0;
+
   const errorLog: string[] = [];
-  
+  let validRows: ExcelRow[] = [];
+  let failedRows = 0;
+
   try {
+    // Step 1: Validate all rows
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const rowIndex = i + 2; // Excel rows are 1-indexed, plus header
-      
-      try {
-        // Validate row
-        const validation = validateRow(row as unknown as Record<string, unknown>, rowIndex);
-        
-        if (!validation.valid) {
-          errorLog.push(...validation.errors);
-          failedRows++;
-          continue;
-        }
-        
-        // Parse location
-        const location = parseLocation(row['Location']);
-        const collegeType = normalizeCollegeType(row['Type']);
-        
-        // Get or create college
-        const collegeInput: CreateCollegeInput = {
-          collegeName: row['College Name'],
-          location: location,
-          city: '',
-          state: '',
-          type: collegeType,
-        };
-        
-        const college = await getOrCreateCollege(collegeInput);
-        
-        // Check for existing cutoff
-        const existingCutoff = await findCutoff(
-          college.id,
-          row['Course Name'],
-          year,
-          row['Category']
-        );
-        
-        if (existingCutoff) {
-          // Update existing cutoff
-          await updateCutoff(
-            existingCutoff.id,
-            Number(row['Rank'])
-          );
-        } else {
-          // Create new cutoff
-          const cutoffInput: CreateCutoffInput = {
-            collegeId: college.id,
-            collegeName: college.collegeName,
-            collegeLocation: college.location,
-            collegeType: college.type,
-            courseName: row['Course Name'],
-            courseCode: row['Course Code'],
-            year: year,
-            category: row['Category'],
-            rank: Number(row['Rank']),
-          };
-          
-          await createCutoff(cutoffInput);
-        }
-        
-        processedRows++;
-        
-        // Update progress every 50 rows
-        if (processedRows % 50 === 0) {
-          await updateUploadLog(uploadLog.id, {
-            processedRows,
-            failedRows,
-            errorLog,
-          });
-        }
-      } catch (rowError) {
-        errorLog.push(`Row ${rowIndex}: ${(rowError as Error).message}`);
+
+      const validation = validateRow(row as unknown as Record<string, unknown>, rowIndex);
+
+      if (!validation.valid) {
+        errorLog.push(...validation.errors);
         failedRows++;
+      } else {
+        validRows.push(row);
       }
     }
-    
+
+    // Step 2: Normalize data in memory (take last occurrence for duplicates)
+    const normalizedData = normalizeExcelData(validRows, year);
+
+    // Step 3: Extract unique locations
+    const locations = extractLocations(rows);
+
+    // Step 4: Delete existing cutoffs for this year (replace mode)
+    await deleteCutoffsByYear(year);
+
+    // Step 5: Bulk insert normalized cutoffs
+    const cutoffsToInsert: Omit<CollegeRankCutoff, 'id' | 'createdAt'>[] = normalizedData.map(item => ({
+      collegeName: item.collegeName,
+      collegeLocation: item.collegeLocation,
+      collegeType: item.collegeType as CollegeRankCutoff['collegeType'],
+      courseName: item.courseName,
+      courseCode: item.courseCode,
+      year: item.year,
+      category: item.category,
+      rank: item.rank,
+    }));
+
+    const insertedCount = await bulkCreateCutoffs(cutoffsToInsert);
+
+    // Step 6: Sync locations
+    await syncLocations(locations);
+
     // Final update
     await updateUploadLog(uploadLog.id, {
-      processedRows,
+      processedRows: insertedCount,
       failedRows,
       errorLog,
       status: failedRows === rows.length ? 'failed' : 'completed',
       completedAt: Timestamp.now(),
     });
-    
+
     return {
       ...uploadLog,
-      processedRows,
+      processedRows: insertedCount,
       failedRows,
       errorLog,
       status: failedRows === rows.length ? 'failed' : 'completed',
@@ -269,7 +257,7 @@ export async function processExcelUpload(
       errorLog: [...errorLog, (error as Error).message],
       completedAt: Timestamp.now(),
     });
-    
+
     throw error;
   }
 }
@@ -283,21 +271,21 @@ export async function getUploadLogs(options: {
   limit?: number;
 } = {}): Promise<ExcelUploadLog[]> {
   let query = uploadsCollection.orderBy('createdAt', 'desc');
-  
+
   if (options.year) {
     query = query.where('year', '==', options.year);
   }
-  
+
   if (options.status) {
     query = query.where('status', '==', options.status);
   }
-  
+
   if (options.limit) {
     query = query.limit(options.limit);
   }
-  
+
   const snapshot = await query.get();
-  
+
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ExcelUploadLog));
 }
 
@@ -306,10 +294,10 @@ export async function getUploadLogs(options: {
  */
 export async function getUploadLogById(id: string): Promise<ExcelUploadLog | null> {
   const doc = await uploadsCollection.doc(id).get();
-  
+
   if (!doc.exists) {
     return null;
   }
-  
+
   return { id: doc.id, ...doc.data() } as ExcelUploadLog;
 }
