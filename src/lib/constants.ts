@@ -8,7 +8,7 @@ export const COLLECTIONS = {
   ADMIN_PROFILES: 'admin_profiles',
   LEADS: 'leads',
   LEAD_FOLLOWUPS: 'lead_followups',
-  COLLEGES: 'colleges',
+  LOCATIONS: 'locations',
   COLLEGE_RANK_CUTOFFS: 'college_rank_cutoffs',
   EXCEL_UPLOAD_LOGS: 'excel_upload_logs',
   DASHBOARD_STATS: 'dashboard_stats',
