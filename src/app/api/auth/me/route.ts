@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth } from '@/lib/firebase/admin';
 import { getUserById } from '@/lib/services/users';
+import { getStudentByUserId } from '@/lib/services/students';
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,6 +35,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check if student has profile (for role-based redirect)
+    let hasStudentProfile = false;
+    if (user.role === 'student') {
+      const studentProfile = await getStudentByUserId(uid);
+      hasStudentProfile = !!studentProfile;
+    }
+
     return NextResponse.json({
       user: {
         id: user.id,
@@ -46,6 +54,7 @@ export async function GET(request: NextRequest) {
         state: user.state,
         avatarUrl: user.avatarUrl,
         isActive: user.isActive,
+        hasStudentProfile,
       },
     });
   } catch (error) {

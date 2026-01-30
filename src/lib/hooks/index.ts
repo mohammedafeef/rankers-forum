@@ -1,2 +1,2 @@
-export { AuthProvider, useAuth, useRequireAuth } from './useAuth';
+export { AuthProvider, useAuth, useRequireAuth, getRedirectUrl } from './useAuth';
 export { useAuthActions } from './useAuthActions';

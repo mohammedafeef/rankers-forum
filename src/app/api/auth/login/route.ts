@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminAuth, getAdminDb } from '@/lib/firebase/admin';
 import { getUserById, createUser } from '@/lib/services/users';
+import { getStudentByUserId } from '@/lib/services/students';
 import { COLLECTIONS } from '@/lib/constants';
 import { Timestamp } from 'firebase-admin/firestore';
 import { initializeStats, incrementStat } from '@/lib/services/stats';
@@ -82,6 +83,13 @@ export async function POST(request: NextRequest) {
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
     const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
 
+    // Check if student has profile (for role-based redirect)
+    let hasStudentProfile = false;
+    if (user.role === 'student') {
+      const studentProfile = await getStudentByUserId(uid);
+      hasStudentProfile = !!studentProfile;
+    }
+
     // Create response with session cookie
     const response = NextResponse.json({
       success: true,
@@ -92,6 +100,7 @@ export async function POST(request: NextRequest) {
         lastName: user.lastName,
         email: user.email,
         isActive: user.isActive,
+        hasStudentProfile,
       },
     });
 

@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Building2, MapPin, Phone, Mail, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/lib/hooks';
+import { useAuth, getRedirectUrl } from '@/lib/hooks';
 import { Navbar, Footer } from '@/components/layout';
 import { FAQ } from '@/components/home/FAQ';
 import { CTA } from '@/components/home/CTA';
@@ -25,11 +25,18 @@ export default function LandingPage() {
 
   const handleCheckColleges = () => {
     if (user) {
-      router.push('/student/info');
+      router.push(getRedirectUrl(user));
     } else {
       setRegisterOpen(true);
     }
   };
+
+  // Redirect logged-in users to their appropriate page
+  useEffect(() => {
+    if (!loading && user) {
+      router.push(getRedirectUrl(user));
+    }
+  }, [loading, user, router]);
 
 
   return (
