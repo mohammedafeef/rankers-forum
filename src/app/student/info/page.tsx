@@ -19,14 +19,15 @@ import {
 } from '@/components/ui/select';
 import { useAuth, useRequireAuth } from '@/lib/hooks';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { 
-  NEET_CATEGORIES, 
-  QUOTA_TYPES, 
-  MEDICAL_BRANCHES, 
+import {
+  NEET_CATEGORIES,
+  QUOTA_TYPES,
+  MEDICAL_BRANCHES,
   INDIAN_STATES,
   GENDERS,
 } from '@/lib/constants';
 import { LogoutModal } from '@/components/modals';
+import { Navbar } from '@/components/layout';
 
 const studentInfoSchema = z.object({
   rank: z.string().min(1, 'Rank is required'),
@@ -148,38 +149,11 @@ export default function StudentInfoPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-100">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center">
-                <GraduationCap className="h-6 w-6 text-white" />
-              </div>
-              <span className="text-xl font-bold text-slate-900">
-                Rankers<span className="text-indigo-600">Forum</span>
-              </span>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <a href="tel:+919876543210" className="flex items-center gap-2 text-indigo-600">
-                <Phone className="h-5 w-5" />
-              </a>
-              <button
-                onClick={() => setLogoutOpen(true)}
-                className="text-red-600 hover:text-red-700 font-medium"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
 
       {/* Main Content */}
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Enter Your Details</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-[#1E1E1E]">Enter Your Details</h1>
           <p className="text-amber-600 flex items-center gap-2 mt-2 text-sm">
             <AlertTriangle className="h-4 w-4" />
             Please enter your details carefully! Once Saved, They Cannot Be Edited Or Updated Later.
@@ -195,9 +169,9 @@ export default function StudentInfoPage() {
 
           {/* Basic and Academic Details */}
           <section>
-            <h2 className="text-lg font-semibold text-indigo-700 mb-6">Basic and Academic Details</h2>
-            
-            <div className="grid md:grid-cols-2 gap-6">
+            <h2 className="text-lg font-medium text-[#2F129B] mb-6">Basic and Academic Details</h2>
+
+            <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="rank">Rank</Label>
                 <Input
@@ -292,8 +266,8 @@ export default function StudentInfoPage() {
 
           {/* Course and Location Preference */}
           <section>
-            <h2 className="text-lg font-semibold text-indigo-700 mb-6">Course and Location Preference</h2>
-            
+            <h2 className="text-lg font-semibold text-[#2F129B] mb-6">Course and Location Preference</h2>
+
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Counselling Type</Label>
@@ -399,7 +373,8 @@ export default function StudentInfoPage() {
             <Button
               type="submit"
               size="lg"
-              className="h-14 px-12 rounded-full text-base"
+              className="h-14 px-12 bg-linear-to-r from-[#2F129B] to-[#6366F1] rounded-full 
+             font-normal text-base"
               disabled={submitMutation.isPending || checksRemaining <= 0}
             >
               {submitMutation.isPending ? (

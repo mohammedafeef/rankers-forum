@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useRequireAuth } from '@/lib/hooks';
 import { useQuery } from '@tanstack/react-query';
+import Image from 'next/image';
+import { TableShimmer } from '@/components/ui/table-shimmer';
 
 interface DashboardStats {
   totalRegistrations: number;
@@ -74,10 +76,10 @@ export default function SuperAdminDashboard() {
   const leads: Lead[] = leadsData?.leads || [];
 
   const statCards = [
-    { label: 'Total Registrations', value: stats.totalRegistrations, icon: FileText, color: 'bg-indigo-50 text-indigo-600' },
-    { label: 'Total Info Filled', value: stats.totalInfoFilled, icon: CheckCircle, color: 'bg-green-50 text-green-600' },
-    { label: 'Total Requests', value: stats.totalRequests, icon: Users, color: 'bg-amber-50 text-amber-600' },
-    { label: 'Pending Callbacks', value: stats.pendingCallbacks, icon: Phone, color: 'bg-purple-50 text-purple-600' },
+    { label: 'Total Registrations', value: stats.totalRegistrations, icon: "/calendar.svg", color: 'bg-indigo-50 text-indigo-600' },
+    { label: 'Total Info Filled', value: stats.totalInfoFilled, icon: "/checkCircle.svg", color: 'bg-green-50 text-green-600' },
+    { label: 'Total Requests', value: stats.totalRequests, icon: "/user.svg", color: 'bg-amber-50 text-amber-600' },
+    { label: 'Pending Callbacks', value: stats.pendingCallbacks, icon: "/phone.svg", color: 'bg-purple-50 text-purple-600' },
   ];
 
   const getStatusBadge = (status: string) => {
@@ -96,12 +98,12 @@ export default function SuperAdminDashboard() {
   return (
     <AdminLayout title="Dashboard">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
         {statCards.map((stat, index) => (
           <div key={index} className="bg-white rounded-xl p-6 border border-slate-100">
             <div className="flex items-center gap-4">
               <div className={`w-12 h-12 rounded-xl ${stat.color} flex items-center justify-center`}>
-                <stat.icon className="w-6 h-6" />
+                <Image src={stat.icon as string} alt={stat.label} width={28} height={28} />
               </div>
               <div>
                 <p className="text-sm text-slate-500">{stat.label}</p>
@@ -115,35 +117,33 @@ export default function SuperAdminDashboard() {
       </div>
 
       {/* Assigned Callbacks Table */}
-      <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
-        <div className="p-6 border-b border-slate-100">
-          <h2 className="text-lg font-semibold text-slate-900">Assigned Callbacks</h2>
+      <div className=" rounded-xl  border-slate-100 overflow-hidden">
+        <div className="py-3 border-b border-slate-100">
+          <h2 className="text-lg font-medium text-slate-900">Assigned Callbacks</h2>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-slate-900 text-white text-sm">
-                <th className="text-left px-6 py-4 font-medium">Name</th>
+              <tr className="bg-[#2F129B] text-white text-sm rounded-t-2xl overflow-hidden">
+                <th className="text-left px-6 py-4 font-medium rounded-tl-2xl ">Name</th>
                 <th className="text-left px-6 py-4 font-medium">State</th>
                 <th className="text-left px-6 py-4 font-medium">Phone no.</th>
                 <th className="text-left px-6 py-4 font-medium">Rank</th>
                 <th className="text-left px-6 py-4 font-medium">Course</th>
                 <th className="text-left px-6 py-4 font-medium">Assigned on</th>
-                <th className="text-left px-6 py-4 font-medium">Status</th>
+                <th className="text-left px-6 py-4 font-medium rounded-tr-2xl">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {leadsLoading ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-indigo-600 mx-auto" />
-                  </td>
-                </tr>
+                <TableShimmer rows={6} columns={7} />
               ) : leads.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                    No assigned callbacks yet.
+                  <td colSpan={7} className="px-6 py-16 ">
+                    <div className="flex items-center justify-center min-h-96">
+                      <p className="text-slate-500 text-sm">No assigned callbacks yet.</p>
+                    </div>
                   </td>
                 </tr>
               ) : (

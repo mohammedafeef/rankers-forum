@@ -34,7 +34,7 @@ export default function PreviousYearPage() {
   const router = useRouter();
   const { loading: authLoading } = useAuth();
   const { isAuthorized } = useRequireAuth(['student']);
-  
+
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'government' | 'private' | 'deemed'>('government');
   const [stateFilter, setStateFilter] = useState('all');
@@ -106,40 +106,12 @@ export default function PreviousYearPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-100">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center">
-                <GraduationCap className="h-6 w-6 text-white" />
-              </div>
-              <span className="text-xl font-bold text-slate-900">
-                Rankers<span className="text-indigo-600">Forum</span>
-              </span>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <a href="tel:+919876543210" className="flex items-center gap-2 text-indigo-600">
-                <Phone className="h-5 w-5" />
-              </a>
-              <button
-                onClick={() => setLogoutOpen(true)}
-                className="text-red-600 hover:text-red-700 font-medium"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Title and Filters */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Previous Year Predictions</h1>
+            <h1 className="text-2xl sm:text-3xl font-medium text-slate-900">Previous Year Predictions</h1>
             <p className="text-amber-600 flex items-center gap-2 mt-1 text-sm">
               <AlertTriangle className="h-4 w-4" />
               The previous year college lists are generated using historical counselling data for the same rank and are for reference purpose only.
@@ -165,7 +137,7 @@ export default function PreviousYearPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex border w-fit rounded-[8px] p-1 gap-2 mb-6">
           {[
             { value: 'government', label: 'Government' },
             { value: 'private', label: 'Private' },
@@ -174,11 +146,10 @@ export default function PreviousYearPage() {
             <button
               key={tab.value}
               onClick={() => setActiveTab(tab.value as typeof activeTab)}
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
-                activeTab === tab.value
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}
+              className={`px-5 py-2 rounded-[8px] text-sm font-medium transition-colors ${activeTab === tab.value
+                ? 'bg-linear-to-r from-[#2F129B] to-[#3B82F6] text-white'
+                : 'bg-white text-slate-600  hover:bg-slate-50'
+                }`}
             >
               {tab.label}
             </button>

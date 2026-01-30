@@ -1,212 +1,110 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
+  GraduationCap, 
   LayoutDashboard, 
   Users, 
-  Phone, 
-  GraduationCap, 
-  Upload,
+  Building2, 
   UserCog,
-  Settings,
-  Menu,
-  X,
+  UserCircle,
   LogOut,
-  ChevronRight,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useAuth, useRequireAuth } from '@/lib/hooks';
-import { LogoutModal } from '@/components/modals';
+import { useAuth } from '@/lib/hooks';
+import { cn } from '@/lib/utils';
+import { Button } from '../ui/button';
+import Image from 'next/image';
 
-interface SidebarProps {
-  children: React.ReactNode;
+const sidebarLinks = [
+  { href: '/super-admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/super-admin/students', label: 'Students', icon: Users },
+  { href: '/super-admin/colleges', label: 'College', icon: Building2 },
+  { href: '/super-admin/admins', label: 'Admin', icon: UserCog },
+  { href: '/super-admin/profile', label: 'Profile', icon: UserCircle },
+];
+
+interface AdminSidebarProps {
+  onLogoutClick: () => void;
 }
 
-export function AdminSidebar({ children }: SidebarProps) {
+export function AdminSidebar({ onLogoutClick }: AdminSidebarProps) {
   const pathname = usePathname();
   const { user } = useAuth();
-  const { isAuthorized } = useRequireAuth(['admin', 'super_admin']);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [logoutOpen, setLogoutOpen] = useState(false);
-  
-  const isSuperAdmin = user?.role === 'super_admin';
-  const isAdmin = user?.role === 'admin';
-
-  const navigation = [
-    {
-      name: 'Dashboard',
-      href: isSuperAdmin ? '/super-admin/dashboard' : '/admin/dashboard',
-      icon: LayoutDashboard,
-      current: pathname.includes('/dashboard'),
-      roles: ['admin', 'super_admin'],
-    },
-    {
-      name: 'Students',
-      href: '/super-admin/students',
-      icon: Users,
-      current: pathname.includes('/students'),
-      roles: ['super_admin'],
-    },
-    {
-      name: 'Callback Requests',
-      href: '/super-admin/callbacks',
-      icon: Phone,
-      current: pathname.includes('/callbacks'),
-      roles: ['super_admin'],
-    },
-    {
-      name: 'Assigned Leads',
-      href: '/admin/leads',
-      icon: Phone,
-      current: pathname.includes('/leads'),
-      roles: ['admin'],
-    },
-    {
-      name: 'College Details',
-      href: '/super-admin/colleges',
-      icon: GraduationCap,
-      current: pathname.includes('/colleges'),
-      roles: ['super_admin'],
-    },
-    {
-      name: 'Upload Data',
-      href: '/super-admin/upload',
-      icon: Upload,
-      current: pathname.includes('/upload'),
-      roles: ['super_admin'],
-    },
-    {
-      name: 'Admin Management',
-      href: '/super-admin/admins',
-      icon: UserCog,
-      current: pathname.includes('/admins'),
-      roles: ['super_admin'],
-    },
-    {
-      name: 'Profile',
-      href: '/profile',
-      icon: Settings,
-      current: pathname.includes('/profile'),
-      roles: ['admin', 'super_admin'],
-    },
-  ];
-
-  const filteredNavigation = navigation.filter(item => 
-    item.roles.includes(user?.role || '')
-  );
-
-  if (!isAuthorized) {
-    return null;
-  }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Mobile sidebar backdrop */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside className={`
-        fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 
-        transform transition-transform duration-200 ease-in-out
-        lg:translate-x-0
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
-        {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-100">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600">
-              <span className="text-white font-bold text-sm">R</span>
-            </div>
-            <span className="font-bold text-lg text-slate-900">
-              Rankers <span className="text-indigo-600">Forum</span>
-            </span>
-          </Link>
-          <button 
-            className="lg:hidden p-1 text-slate-500"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Navigation */}
-        <nav className="p-4 space-y-1">
-          {filteredNavigation.map((item) => (
+    <aside className="w-64 bg-white text-white flex flex-col
+    shadow-md border-r border-slate-100 fixed inset-y-0 left-0 z-50">
+      {/* Logo */}
+   <div className="p-6 ">
+   <Image
+   src="/logoBlue.svg"
+   alt="Rankers Forum Logo"
+   width={160}
+   height={45}
+   className="object-contain w-[100px] h-[32px] md:w-[160px] md:h-[45px]"
+   priority
+   />
+   </div>
+      {/* Navigation */}
+      <nav className="flex-1 p-4 space-y-2">
+        {sidebarLinks.map((link) => {
+          const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
+          return (
             <Link
-              key={item.name}
-              href={item.href}
-              className={`
-                flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors
-                ${item.current 
-                  ? 'bg-indigo-50 text-indigo-700' 
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }
-              `}
-              onClick={() => setSidebarOpen(false)}
+              key={link.href}
+              href={link.href}
+              className={cn(
+                'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors',
+                isActive
+                  ? 'bg-gradient-to-r from-[#2F129B] to-[#3B82F6] text-white'
+                  : 'text-[#4B5563] hover:text-gray-800 hover:bg-slate-200'
+              )}
             >
-              <item.icon className={`h-5 w-5 ${item.current ? 'text-indigo-600' : ''}`} />
-              {item.name}
-              {item.current && <ChevronRight className="h-4 w-4 ml-auto" />}
+              <link.icon className="h-5 w-5" />
+              {link.label}
             </Link>
-          ))}
-        </nav>
+          );
+        })}
+      </nav>
 
-        {/* User info at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-100">
+      {/* User Profile */}
+      <div className="p-4">
+        <div className="bg-gray-100 rounded-lg p-3">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-full flex items-center justify-center">
-              <span className="text-white font-medium text-sm">
+            {user?.avatarUrl ? (
+              <Image
+                src={user.avatarUrl}
+                alt={`${user.firstName} ${user.lastName}`}
+                width={40}
+                height={40}
+                className="w-10 h-10 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white font-medium">
                 {user?.firstName?.[0]}{user?.lastName?.[0]}
-              </span>
-            </div>
+              </div>
+            )}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-900 truncate">
-                {user?.firstName} {user?.lastName}
+              <p className="text-sm font-medium text-gray-700 truncate">
+                {user?.firstName} {user?.lastName?.[0]}
               </p>
-              <p className="text-xs text-slate-500 capitalize">
-                {user?.role?.replace('_', ' ')}
+              <p className="text-xs text-gray-500 truncate">
+                {user?.role === 'super_admin' ? 'Super Admin' : 'Admin'}
               </p>
             </div>
           </div>
           <Button 
             variant="outline" 
-            className="w-full" 
+            className="w-full border-gray-300 text-gray-700 hover:bg-gray-50" 
             size="sm"
-            onClick={() => setLogoutOpen(true)}
+            onClick={onLogoutClick}
           >
             <LogOut className="h-4 w-4 mr-2" />
             Logout
           </Button>
         </div>
-      </aside>
-
-      {/* Main content */}
-      <div className="lg:pl-72">
-        {/* Top bar */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center px-4 lg:px-8">
-          <button 
-            className="lg:hidden p-2 text-slate-600"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu className="h-6 w-6" />
-          </button>
-          <div className="flex-1" />
-        </header>
-
-        {/* Page content */}
-        <main className="p-4 lg:p-8">
-          {children}
-        </main>
       </div>
-
-      <LogoutModal open={logoutOpen} onOpenChange={setLogoutOpen} />
-    </div>
+    </aside>
   );
 }
