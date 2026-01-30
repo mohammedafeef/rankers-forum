@@ -40,7 +40,7 @@ export default function StudentResultPage() {
   const router = useRouter();
   const { loading: authLoading } = useAuth();
   const { isAuthorized } = useRequireAuth(['student']);
-  
+
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'government' | 'private' | 'deemed'>('government');
   const [stateFilter, setStateFilter] = useState('all');
@@ -106,34 +106,6 @@ export default function StudentResultPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-100">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center">
-                <GraduationCap className="h-6 w-6 text-white" />
-              </div>
-              <span className="text-xl font-bold text-slate-900">
-                Rankers<span className="text-indigo-600">Forum</span>
-              </span>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <a href="tel:+919876543210" className="flex items-center gap-2 text-indigo-600">
-                <Phone className="h-5 w-5" />
-              </a>
-              <button
-                onClick={() => setLogoutOpen(true)}
-                className="text-red-600 hover:text-red-700 font-medium"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Title and Filters */}
@@ -174,11 +146,10 @@ export default function StudentResultPage() {
             <button
               key={tab.value}
               onClick={() => setActiveTab(tab.value as typeof activeTab)}
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${
-                activeTab === tab.value
+              className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${activeTab === tab.value
                   ? 'bg-indigo-600 text-white'
                   : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}
+                }`}
             >
               {tab.label}
             </button>

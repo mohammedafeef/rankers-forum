@@ -24,6 +24,7 @@ import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useRequireAuth } from '@/lib/hooks';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { JOB_TYPES } from '@/lib/constants';
+import { TableShimmer } from '@/components/ui/table-shimmer';
 
 interface Admin {
   id: string;
@@ -144,27 +145,25 @@ export default function AdminManagementPage() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-slate-900 text-white text-sm">
-                <th className="text-left px-6 py-4 font-medium">Admin Name</th>
+              <tr className="bg-[#2F129B] text-white text-sm rounded-t-2xl overflow-hidden">
+                <th className="text-left px-6 py-4 font-medium rounded-tl-2xl">Admin Name</th>
                 <th className="text-left px-6 py-4 font-medium">Employee Number</th>
                 <th className="text-left px-6 py-4 font-medium">Phone no.</th>
                 <th className="text-left px-6 py-4 font-medium">Email Id</th>
                 <th className="text-left px-6 py-4 font-medium">Callback</th>
                 <th className="text-left px-6 py-4 font-medium">Active</th>
-                <th className="text-left px-6 py-4 font-medium">Actions</th>
+                <th className="text-left px-6 py-4 font-medium rounded-tr-2xl">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-indigo-600 mx-auto" />
-                  </td>
-                </tr>
+                <TableShimmer rows={6} columns={7} />
               ) : admins.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                    No admins found. Click "Edit" to add one.
+                  <td colSpan={7} className="px-6 py-16">
+                    <div className="flex items-center justify-center min-h-96">
+                      <p className="text-slate-500 text-sm">No admins found. Click "Create Admin" to add one.</p>
+                    </div>
                   </td>
                 </tr>
               ) : (

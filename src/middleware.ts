@@ -52,13 +52,13 @@ export async function middleware(request: NextRequest) {
   // Get session cookie
   const sessionCookie = request.cookies.get('session')?.value;
 
-  if (!sessionCookie) {
-    if (isApiRoute) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    // Redirect to home page for page routes
-    return NextResponse.redirect(new URL('/', request.url));
-  }
+  // if (!sessionCookie) {
+  //   if (isApiRoute) {
+  //     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  //   }
+  // Redirect to home page for page routes
+  // return NextResponse.redirect(new URL('/', request.url));
+  // }
 
   // For API routes, let the route handler verify the session
   // This is more efficient as we avoid verifying twice

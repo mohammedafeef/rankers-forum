@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Printer, Download, X, Phone, Users } from 'lucide-react';
+import { Loader2, Printer, Download, X, Phone, Users, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,8 @@ import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useRequireAuth } from '@/lib/hooks';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { INDIAN_STATES } from '@/lib/constants';
+import { TableShimmer } from '@/components/ui/table-shimmer';
+import { Pagination } from '@/components/ui/pagination';
 
 interface Student {
   id: string;
@@ -67,6 +70,9 @@ export default function StudentsPage() {
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [selectedAdminId, setSelectedAdminId] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   // Fetch students
   const { data: studentsData, isLoading: studentsLoading } = useQuery({
@@ -131,6 +137,72 @@ export default function StudentsPage() {
     }
   }, [authLoading, isAuthorized, router]);
 
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1); // Reset to first page when search changes
+  };
+
+  const handleTabChange = (tab: 'details' | 'callback') => {
+    setActiveTab(tab);
+    setSearchQuery(''); // Clear search when tab changes
+    setCurrentPage(1); // Reset to first page when tab changes
+  };
+
+  const students: Student[] = studentsData?.students || [];
+  const leads: Lead[] = leadsData?.leads || [];
+  const admins = adminsData?.admins || [];
+
+  // Filter students based on search query
+  const filteredStudents = students.filter((student) => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase();
+    return (
+      `${student.firstName} ${student.lastName}`.toLowerCase().includes(query) ||
+      student.email?.toLowerCase().includes(query) ||
+      student.phone?.toLowerCase().includes(query) ||
+      student.city?.toLowerCase().includes(query) ||
+      student.state?.toLowerCase().includes(query) ||
+      student.rank?.toString().includes(query)
+    );
+  });
+
+  // Filter leads based on search query
+  const filteredLeads = leads.filter((lead) => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase();
+    return (
+      lead.studentName?.toLowerCase().includes(query) ||
+      lead.studentPhone?.toLowerCase().includes(query) ||
+      lead.studentState?.toLowerCase().includes(query) ||
+      lead.course?.toLowerCase().includes(query) ||
+      lead.rank?.toString().includes(query)
+    );
+  });
+
+  // Pagination calculations for students
+  const studentsTotalItems = filteredStudents.length;
+  const studentsTotalPages = Math.ceil(studentsTotalItems / itemsPerPage);
+  const studentsStartIndex = (currentPage - 1) * itemsPerPage;
+  const studentsEndIndex = studentsStartIndex + itemsPerPage;
+  const paginatedStudents = filteredStudents.slice(studentsStartIndex, studentsEndIndex);
+
+  // Pagination calculations for leads
+  const leadsTotalItems = filteredLeads.length;
+  const leadsTotalPages = Math.ceil(leadsTotalItems / itemsPerPage);
+  const leadsStartIndex = (currentPage - 1) * itemsPerPage;
+  const leadsEndIndex = leadsStartIndex + itemsPerPage;
+  const paginatedLeads = filteredLeads.slice(leadsStartIndex, leadsEndIndex);
+
+  // Reset to page 1 if current page is out of bounds
+  useEffect(() => {
+    const totalPages = activeTab === 'details' ? studentsTotalPages : leadsTotalPages;
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, studentsTotalPages, leadsTotalPages, activeTab]);
+
   if (authLoading || !isAuthorized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -138,10 +210,6 @@ export default function StudentsPage() {
       </div>
     );
   }
-
-  const students: Student[] = studentsData?.students || [];
-  const leads: Lead[] = leadsData?.leads || [];
-  const admins = adminsData?.admins || [];
 
   const handleViewDetails = (student: Student) => {
     setSelectedStudent(student);
@@ -180,28 +248,45 @@ export default function StudentsPage() {
         </div>
       }
     >
-      {/* Tabs */}
-      <div className="flex gap-4 mb-6">
-        <button
-          onClick={() => setActiveTab('details')}
-          className={`text-sm font-medium pb-2 border-b-2 transition-colors ${
-            activeTab === 'details'
-              ? 'text-slate-900 border-indigo-600'
-              : 'text-slate-500 border-transparent hover:text-slate-700'
-          }`}
-        >
-          Students Details
-        </button>
-        <button
-          onClick={() => setActiveTab('callback')}
-          className={`text-sm font-medium pb-2 border-b-2 transition-colors ${
-            activeTab === 'callback'
-              ? 'text-slate-900 border-indigo-600'
-              : 'text-slate-500 border-transparent hover:text-slate-700'
-          }`}
-        >
-          Callback Request
-        </button>
+      {/* Tabs and Search Bar */}
+      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+        {/* Tabs */}
+        <div className="flex gap-4">
+          <button
+            onClick={() => handleTabChange('details')}
+            className={`text-sm font-medium pb-2 border-b-2 transition-colors ${
+              activeTab === 'details'
+                ? 'text-slate-900 border-indigo-600'
+                : 'text-slate-500 border-transparent hover:text-slate-700'
+            }`}
+          >
+            Students Details
+          </button>
+          <button
+            onClick={() => handleTabChange('callback')}
+            className={`text-sm font-medium pb-2 border-b-2 transition-colors ${
+              activeTab === 'callback'
+                ? 'text-slate-900 border-indigo-600'
+                : 'text-slate-500 border-transparent hover:text-slate-700'
+            }`}
+          >
+            Callback Request
+          </button>
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative max-w-lg w-full sm:w-auto">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Input
+            type="text"
+            placeholder={activeTab === 'details' 
+              ? "Search by name, email, phone, location, or rank..."
+              : "Search by name, phone, state, course, or rank..."}
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="pl-10 pr-4 w-full"
+          />
+        </div>
       </div>
 
       {/* Students Table */}
@@ -210,31 +295,33 @@ export default function StudentsPage() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="bg-slate-900 text-white text-sm">
-                  <th className="text-left px-6 py-4 font-medium">Name</th>
+                <tr className="bg-[#2F129B] text-white text-sm rounded-t-2xl overflow-hidden">
+                  <th className="text-left px-6 py-4 font-medium rounded-tl-2xl">Name</th>
                   <th className="text-left px-6 py-4 font-medium">Location</th>
                   <th className="text-left px-6 py-4 font-medium">Phone no.</th>
                   <th className="text-left px-6 py-4 font-medium">Email Id</th>
                   <th className="text-left px-6 py-4 font-medium">Rank</th>
                   <th className="text-left px-6 py-4 font-medium">Callback</th>
-                  <th className="text-left px-6 py-4 font-medium">Actions</th>
+                  <th className="text-left px-6 py-4 font-medium rounded-tr-2xl">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {studentsLoading ? (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center">
-                      <Loader2 className="h-6 w-6 animate-spin text-indigo-600 mx-auto" />
-                    </td>
-                  </tr>
-                ) : students.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                      No students found.
-                    </td>
-                  </tr>
-                ) : (
-                  students.map((student) => (
+              {studentsLoading ? (
+                <TableShimmer rows={6} columns={7} />
+              ) : filteredStudents.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-16">
+                    <div className="flex items-center justify-center min-h-96">
+                      <p className="text-slate-500 text-sm">
+                        {searchQuery 
+                          ? `No students found matching "${searchQuery}".` 
+                          : 'No students found.'}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                paginatedStudents.map((student) => (
                     <tr key={student.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 text-sm text-slate-900">
                         {student.firstName} {student.lastName}
@@ -271,6 +358,17 @@ export default function StudentsPage() {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination */}
+          {!studentsLoading && filteredStudents.length > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={studentsTotalPages}
+              onPageChange={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+              totalItems={studentsTotalItems}
+            />
+          )}
         </div>
       )}
 
@@ -280,31 +378,33 @@ export default function StudentsPage() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="bg-slate-900 text-white text-sm">
-                  <th className="text-left px-6 py-4 font-medium">Name</th>
+                <tr className="bg-[#2F129B] text-white text-sm rounded-t-2xl overflow-hidden">
+                  <th className="text-left px-6 py-4 font-medium rounded-tl-2xl">Name</th>
                   <th className="text-left px-6 py-4 font-medium">State</th>
                   <th className="text-left px-6 py-4 font-medium">Phone no.</th>
                   <th className="text-left px-6 py-4 font-medium">Rank</th>
                   <th className="text-left px-6 py-4 font-medium">Course</th>
                   <th className="text-left px-6 py-4 font-medium">Status</th>
-                  <th className="text-left px-6 py-4 font-medium">Actions</th>
+                  <th className="text-left px-6 py-4 font-medium rounded-tr-2xl">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {leadsLoading ? (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center">
-                      <Loader2 className="h-6 w-6 animate-spin text-indigo-600 mx-auto" />
-                    </td>
-                  </tr>
-                ) : leads.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                      No callback requests found.
-                    </td>
-                  </tr>
-                ) : (
-                  leads.map((lead) => (
+              {leadsLoading ? (
+                <TableShimmer rows={6} columns={7} />
+              ) : filteredLeads.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-16">
+                    <div className="flex items-center justify-center min-h-96">
+                      <p className="text-slate-500 text-sm">
+                        {searchQuery 
+                          ? `No callback requests found matching "${searchQuery}".` 
+                          : 'No callback requests found.'}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                paginatedLeads.map((lead) => (
                     <tr key={lead.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 text-sm text-slate-900">{lead.studentName}</td>
                       <td className="px-6 py-4 text-sm text-slate-600">{lead.studentState}</td>
@@ -335,6 +435,17 @@ export default function StudentsPage() {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination */}
+          {!leadsLoading && filteredLeads.length > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={leadsTotalPages}
+              onPageChange={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+              totalItems={leadsTotalItems}
+            />
+          )}
         </div>
       )}
 

@@ -12,6 +12,7 @@ interface User {
   firstName: string;
   lastName: string;
   isActive: boolean;
+  avatarUrl?: string | null;
 }
 
 interface AuthContextType {

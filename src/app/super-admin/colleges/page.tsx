@@ -2,13 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Upload, Edit, Download } from 'lucide-react';
+import { Loader2, Upload, Edit, Download, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useRequireAuth } from '@/lib/hooks';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AVAILABLE_YEARS } from '@/lib/constants';
 import { UploadDialog } from '@/components/modals/UploadDialog';
+import { TableShimmer } from '@/components/ui/table-shimmer';
+import { Pagination } from '@/components/ui/pagination';
 
 interface College {
   id: string;
@@ -29,6 +32,9 @@ export default function CollegePage() {
   
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { data: collegesData, isLoading } = useQuery({
     queryKey: ['colleges', selectedYear],
@@ -42,8 +48,15 @@ export default function CollegePage() {
 
   const handleYearChange = (year: number) => {
     setSelectedYear(year);
+    setCurrentPage(1); // Reset to first page when year changes
+    setSearchQuery(''); // Clear search when year changes
     // Invalidate and refetch the query for the new year
     queryClient.invalidateQueries({ queryKey: ['colleges', year] });
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1); // Reset to first page when search changes
   };
 
   useEffect(() => {
@@ -52,6 +65,36 @@ export default function CollegePage() {
     }
   }, [authLoading, isAuthorized, router]);
 
+  const colleges: College[] = collegesData?.cutoffs || [];
+  
+  // Filter colleges based on search query
+  const filteredColleges = colleges.filter((college) => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase();
+    return (
+      college.collegeName?.toLowerCase().includes(query) ||
+      college.courseCode?.toLowerCase().includes(query) ||
+      college.courseName?.toLowerCase().includes(query) ||
+      college.category?.toLowerCase().includes(query) ||
+      college.collegeLocation?.toLowerCase().includes(query)
+    );
+  });
+  
+  // Pagination calculations
+  const totalItems = filteredColleges.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedColleges = filteredColleges.slice(startIndex, endIndex);
+
+  // Reset to page 1 if current page is out of bounds
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, totalPages]);
+
   if (authLoading || !isAuthorized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -59,8 +102,6 @@ export default function CollegePage() {
       </div>
     );
   }
-
-  const colleges: College[] = collegesData?.cutoffs || [];
 
   return (
     <AdminLayout
@@ -78,21 +119,36 @@ export default function CollegePage() {
         </div>
       }
     >
-      {/* Year Tabs */}
-      <div className="flex gap-4 mb-6">
-        {AVAILABLE_YEARS.map((year) => (
-          <button
-            key={year}
-            onClick={() => handleYearChange(year)}
-            className={`text-sm font-medium pb-2 border-b-2 transition-colors ${
-              selectedYear === year
-                ? 'text-slate-900 border-indigo-600'
-                : 'text-slate-500 border-transparent hover:text-slate-700'
-            }`}
-          >
-            {year}
-          </button>
-        ))}
+      {/* Year Tabs and Search Bar */}
+      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+        {/* Year Tabs */}
+        <div className="flex gap-4">
+          {AVAILABLE_YEARS.map((year) => (
+            <button
+              key={year}
+              onClick={() => handleYearChange(year)}
+              className={`text-sm font-medium pb-2 border-b-2 transition-colors ${
+                selectedYear === year
+                  ? 'text-slate-900 border-indigo-600'
+                  : 'text-slate-500 border-transparent hover:text-slate-700'
+              }`}
+            >
+              {year}
+            </button>
+          ))}
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative max-w-lg  w-full sm:w-auto">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Input
+            type="text"
+            placeholder="Search by college name, course code, course name, category, or location..."
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="pl-10 pr-4 w-full"
+          />
+        </div>
       </div>
 
       {/* Colleges Table */}
@@ -100,29 +156,31 @@ export default function CollegePage() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-slate-900 text-white text-sm">
-                <th className="text-left px-6 py-4 font-medium">College Name</th>
+              <tr className="bg-[#2F129B] text-white text-sm rounded-t-2xl overflow-hidden">
+                <th className="text-left px-6 py-4 font-medium rounded-tl-2xl">College Name</th>
                 <th className="text-left px-6 py-4 font-medium">Category</th>
                 <th className="text-left px-6 py-4 font-medium">Rank</th>
                 <th className="text-left px-6 py-4 font-medium">Course Code</th>
-                <th className="text-left px-6 py-4 font-medium">Course Name</th>
+                <th className="text-left px-6 py-4 font-medium rounded-tr-2xl">Course Name</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
+                <TableShimmer rows={6} columns={5} hasActionsColumn={false} />
+              ) : filteredColleges.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-indigo-600 mx-auto" />
-                  </td>
-                </tr>
-              ) : colleges.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                    No colleges found for {selectedYear}.
+                  <td colSpan={5} className="px-6 py-16">
+                    <div className="flex items-center justify-center min-h-96">
+                      <p className="text-slate-500 text-sm">
+                        {searchQuery 
+                          ? `No colleges found matching "${searchQuery}".` 
+                          : `No colleges found for ${selectedYear}.`}
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ) : (
-                colleges.map((college) => (
+                paginatedColleges.map((college) => (
                   <tr key={college.id} className="hover:bg-slate-50">
                     <td className="px-6 py-4 text-sm text-slate-900">{college.collegeName}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{college.category}</td>
@@ -135,6 +193,17 @@ export default function CollegePage() {
             </tbody>
           </table>
         </div>
+        
+        {/* Pagination */}
+        {!isLoading && filteredColleges.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            itemsPerPage={itemsPerPage}
+            totalItems={totalItems}
+          />
+        )}
       </div>
       
       {/* Upload Dialog */}
