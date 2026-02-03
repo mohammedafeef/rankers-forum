@@ -108,8 +108,9 @@ export async function getAdminWithUser(userId: string): Promise<AdminWithUser | 
  * Get all admins with their user data
  */
 export async function getAllAdmins(): Promise<AdminWithUser[]> {
+  // Only get admin role users, exclude super_admin
   const usersSnapshot = await usersCollection
-    .where('role', 'in', ['admin', 'super_admin'])
+    .where('role', '==', 'admin')
     .get();
   
   const admins: AdminWithUser[] = [];;
@@ -146,7 +147,8 @@ export async function getAvailableAdmins(): Promise<AdminWithUser[]> {
     if (adminData.currentActiveLeads < adminData.maxActiveLeads) {
       const userDoc = await usersCollection.doc(adminDoc.id).get();
       
-      if (userDoc.exists && (userDoc.data() as User).isActive) {
+      // Filter out super_admin users - only include regular admins
+      if (userDoc.exists && (userDoc.data() as User).isActive && (userDoc.data() as User).role === 'admin') {
         availableAdmins.push({
           id: userDoc.id,
           ...userDoc.data(),

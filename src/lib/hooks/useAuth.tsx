@@ -13,6 +13,23 @@ interface User {
   lastName: string;
   isActive: boolean;
   avatarUrl?: string | null;
+  hasStudentProfile?: boolean;
+}
+
+/**
+ * Get the redirect URL based on user role and profile status
+ */
+export function getRedirectUrl(user: User): string {
+  switch (user.role) {
+    case 'student':
+      return user.hasStudentProfile ? '/student/result' : '/student/info';
+    case 'admin':
+      return '/admin/leads';
+    case 'super_admin':
+      return '/super-admin/dashboard';
+    default:
+      return '/';
+  }
 }
 
 interface AuthContextType {

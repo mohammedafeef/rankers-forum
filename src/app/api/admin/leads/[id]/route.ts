@@ -85,9 +85,9 @@ export async function GET(
     return NextResponse.json({ error: 'Failed to get lead' }, { status: 500 });
   }
 }
-
 /**
  * PATCH /api/admin/leads/[id] - Update lead (assign or change status)
+ * Supports both action-based and direct field updates
  */
 export async function PATCH(
   request: NextRequest,
@@ -96,9 +96,12 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { action, adminId, status } = body;
+    const { action, adminId, status, assignToAdminId, assignedTo } = body;
 
-    if (action === 'assign') {
+    // Handle assignment - supports multiple field names for flexibility
+    const assignmentAdminId = assignToAdminId || assignedTo || adminId;
+    
+    if (action === 'assign' || (assignmentAdminId && !action)) {
       // Only super admin can assign
       const superAdminUid = await verifySuperAdminSession(request);
       
@@ -106,16 +109,17 @@ export async function PATCH(
         return NextResponse.json({ error: 'Super admin access required' }, { status: 403 });
       }
 
-      if (!adminId) {
+      if (!assignmentAdminId) {
         return NextResponse.json({ error: 'Admin ID required' }, { status: 400 });
       }
 
-      await assignLead(id, adminId);
+      await assignLead(id, assignmentAdminId);
       
       return NextResponse.json({ success: true, message: 'Lead assigned' });
     }
 
-    if (action === 'status') {
+    // Handle status update
+    if (action === 'status' || (status && !action)) {
       // Both admin and super admin can update status
       const sessionCookie = request.cookies.get('session')?.value;
       
@@ -139,7 +143,7 @@ export async function PATCH(
       return NextResponse.json({ success: true, message: 'Status updated' });
     }
 
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid action or missing fields' }, { status: 400 });
   } catch (error) {
     console.error('Update lead error:', error);
     return NextResponse.json({ error: 'Failed to update lead' }, { status: 500 });
