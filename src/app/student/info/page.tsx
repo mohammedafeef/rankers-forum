@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Loader2, AlertTriangle, GraduationCap, ArrowRight, Phone } from 'lucide-react';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
+import { Loader2, AlertTriangle, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,24 +26,26 @@ import {
   GENDERS,
 } from '@/lib/constants';
 import { LogoutModal } from '@/components/modals';
-import { Navbar } from '@/components/layout';
 
-const studentInfoSchema = z.object({
-  rank: z.string().min(1, 'Rank is required'),
-  institution: z.string().optional(),
-  year: z.string().min(1, 'Year is required'),
-  domicileState: z.string().min(1, 'Domicile state is required'),
-  category: z.string().min(1, 'Category is required'),
-  gender: z.string().min(1, 'Gender is required'),
-  counsellingType: z.string().min(1, 'Counselling type is required'),
-  preferredBranch: z.string().min(1, 'Preferred branch is required'),
-  preference1: z.string().min(1, '1st preference is required'),
-  preference2: z.string().optional(),
-  preference3: z.string().optional(),
-  confirmAccuracy: z.boolean().refine(val => val === true, 'Please confirm the information is accurate'),
+// Validation schema using Yup
+const studentInfoSchema = Yup.object({
+  rank: Yup.string()
+    .required('Rank is required')
+    .matches(/^[0-9]+$/, 'Rank must be a valid number'),
+  institution: Yup.string(),
+  year: Yup.string().required('Year is required'),
+  domicileState: Yup.string().required('Domicile state is required'),
+  category: Yup.string().required('Category is required'),
+  gender: Yup.string().required('Gender is required'),
+  counsellingType: Yup.string().required('Counselling type is required'),
+  preferredBranch: Yup.string().required('Preferred branch is required'),
+  preference1: Yup.string().required('1st preference is required'),
+  preference2: Yup.string(),
+  preference3: Yup.string(),
+  confirmAccuracy: Yup.boolean()
+    .oneOf([true], 'Please confirm the information is accurate')
+    .required('Please confirm the information is accurate'),
 });
-
-type StudentInfoData = z.infer<typeof studentInfoSchema>;
 
 export default function StudentInfoPage() {
   const router = useRouter();
@@ -52,22 +53,11 @@ export default function StudentInfoPage() {
   const { isAuthorized } = useRequireAuth(['student']);
   const [logoutOpen, setLogoutOpen] = useState(false);
 
+  // Refs for each field to enable scrolling
+  const fieldRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
   const currentYear = new Date().getFullYear();
   const years = [currentYear, currentYear - 1, currentYear - 2];
-
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<StudentInfoData>({
-    resolver: zodResolver(studentInfoSchema),
-    defaultValues: {
-      year: currentYear.toString(),
-      confirmAccuracy: false,
-    },
-  });
 
   // Check if student has already used their checks
   const { data: profileData } = useQuery({
@@ -81,7 +71,7 @@ export default function StudentInfoPage() {
   });
 
   const submitMutation = useMutation({
-    mutationFn: async (data: StudentInfoData) => {
+    mutationFn: async (data: any) => {
       // First save profile
       const profileResponse = await fetch('/api/students/profile', {
         method: 'POST',
@@ -131,6 +121,47 @@ export default function StudentInfoPage() {
     },
   });
 
+  // Formik setup
+  const formik = useFormik({
+    initialValues: {
+      rank: '',
+      institution: '',
+      year: currentYear.toString(),
+      domicileState: '',
+      category: '',
+      gender: '',
+      counsellingType: '',
+      preferredBranch: '',
+      preference1: '',
+      preference2: '',
+      preference3: '',
+      confirmAccuracy: false,
+    },
+    validationSchema: studentInfoSchema,
+    validateOnChange: true,
+    validateOnBlur: true,
+    onSubmit: (values) => {
+      submitMutation.mutate(values);
+    },
+  });
+
+  // Scroll to first error field on form submission
+  useEffect(() => {
+    if (formik.submitCount > 0 && Object.keys(formik.errors).length > 0) {
+      const firstErrorField = Object.keys(formik.errors)[0];
+      const errorElement = fieldRefs.current[firstErrorField];
+
+      if (errorElement) {
+        errorElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+      }
+    }
+    // Only trigger on submitCount change, not on errors change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formik.submitCount]);
+
   useEffect(() => {
     if (!authLoading && !isAuthorized) {
       router.push('/');
@@ -149,7 +180,6 @@ export default function StudentInfoPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
@@ -160,7 +190,7 @@ export default function StudentInfoPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit((data) => submitMutation.mutate(data))} className="space-y-10">
+        <form onSubmit={formik.handleSubmit} className="space-y-10">
           {submitMutation.error && (
             <div className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-100">
               {submitMutation.error.message}
@@ -172,32 +202,58 @@ export default function StudentInfoPage() {
             <h2 className="text-lg font-medium text-[#2F129B] mb-6">Basic and Academic Details</h2>
 
             <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="rank">Rank</Label>
+              {/* Rank Field */}
+              <div
+                className="space-y-2 transition-all duration-200 rounded-lg p-2 -m-2"
+                ref={(el) => { fieldRefs.current['rank'] = el; }}
+              >
+                <Label htmlFor="rank">Rank <span className="text-red-500">*</span></Label>
                 <Input
                   id="rank"
+                  name="rank"
                   type="number"
                   placeholder="Enter Your Rank"
-                  className="h-12"
-                  {...register('rank')}
+                  className={`h-12 ${formik.touched.rank && formik.errors.rank ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                  value={formik.values.rank}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
                 />
-                {errors.rank && <p className="text-sm text-red-500">{errors.rank.message}</p>}
+                {formik.touched.rank && formik.errors.rank && (
+                  <p className="text-sm text-red-500 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    {formik.errors.rank}
+                  </p>
+                )}
               </div>
 
-              <div className="space-y-2">
+              {/* Institution Field */}
+              <div
+                className="space-y-2 transition-all duration-200 rounded-lg p-2 -m-2"
+                ref={(el) => { fieldRefs.current['institution'] = el; }}
+              >
                 <Label htmlFor="institution">Institution</Label>
                 <Input
                   id="institution"
+                  name="institution"
                   placeholder="Enter the Institution"
                   className="h-12"
-                  {...register('institution')}
+                  value={formik.values.institution}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Year</Label>
-                <Select onValueChange={(v) => setValue('year', v)} defaultValue={currentYear.toString()}>
-                  <SelectTrigger className="h-12">
+              {/* Year Field */}
+              <div
+                className="space-y-2 transition-all duration-200 rounded-lg p-2 -m-2"
+                ref={(el) => { fieldRefs.current['year'] = el; }}
+              >
+                <Label>Year <span className="text-red-500">*</span></Label>
+                <Select
+                  value={formik.values.year}
+                  onValueChange={(value) => formik.setFieldValue('year', value)}
+                >
+                  <SelectTrigger className={`h-12 ${formik.touched.year && formik.errors.year ? 'border-red-500' : ''}`}>
                     <SelectValue placeholder="Select Year of Passout" />
                   </SelectTrigger>
                   <SelectContent>
@@ -208,13 +264,25 @@ export default function StudentInfoPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.year && <p className="text-sm text-red-500">{errors.year.message}</p>}
+                {formik.touched.year && formik.errors.year && (
+                  <p className="text-sm text-red-500 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    {formik.errors.year}
+                  </p>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <Label>Domicile State (The state where you are eligible for state quota seats)</Label>
-                <Select onValueChange={(v) => setValue('domicileState', v)}>
-                  <SelectTrigger className="h-12">
+              {/* Domicile State Field */}
+              <div
+                className="space-y-2 transition-all duration-200 rounded-lg p-2 -m-2"
+                ref={(el) => { fieldRefs.current['domicileState'] = el; }}
+              >
+                <Label>Domicile State <span className="text-red-500">*</span></Label>
+                <Select
+                  value={formik.values.domicileState}
+                  onValueChange={(value) => formik.setFieldValue('domicileState', value)}
+                >
+                  <SelectTrigger className={`h-12 ${formik.touched.domicileState && formik.errors.domicileState ? 'border-red-500' : ''}`}>
                     <SelectValue placeholder="Select Your Domicile State" />
                   </SelectTrigger>
                   <SelectContent>
@@ -225,13 +293,25 @@ export default function StudentInfoPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.domicileState && <p className="text-sm text-red-500">{errors.domicileState.message}</p>}
+                {formik.touched.domicileState && formik.errors.domicileState && (
+                  <p className="text-sm text-red-500 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    {formik.errors.domicileState}
+                  </p>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Select onValueChange={(v) => setValue('category', v)}>
-                  <SelectTrigger className="h-12">
+              {/* Category Field */}
+              <div
+                className="space-y-2 transition-all duration-200 rounded-lg p-2 -m-2"
+                ref={(el) => { fieldRefs.current['category'] = el; }}
+              >
+                <Label>Category <span className="text-red-500">*</span></Label>
+                <Select
+                  value={formik.values.category}
+                  onValueChange={(value) => formik.setFieldValue('category', value)}
+                >
+                  <SelectTrigger className={`h-12 ${formik.touched.category && formik.errors.category ? 'border-red-500' : ''}`}>
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -242,13 +322,25 @@ export default function StudentInfoPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.category && <p className="text-sm text-red-500">{errors.category.message}</p>}
+                {formik.touched.category && formik.errors.category && (
+                  <p className="text-sm text-red-500 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    {formik.errors.category}
+                  </p>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <Label>Gender</Label>
-                <Select onValueChange={(v) => setValue('gender', v)}>
-                  <SelectTrigger className="h-12">
+              {/* Gender Field */}
+              <div
+                className="space-y-2 transition-all duration-200 rounded-lg p-2 -m-2"
+                ref={(el) => { fieldRefs.current['gender'] = el; }}
+              >
+                <Label>Gender <span className="text-red-500">*</span></Label>
+                <Select
+                  value={formik.values.gender}
+                  onValueChange={(value) => formik.setFieldValue('gender', value)}
+                >
+                  <SelectTrigger className={`h-12 ${formik.touched.gender && formik.errors.gender ? 'border-red-500' : ''}`}>
                     <SelectValue placeholder="Select Gender" />
                   </SelectTrigger>
                   <SelectContent>
@@ -259,7 +351,12 @@ export default function StudentInfoPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.gender && <p className="text-sm text-red-500">{errors.gender.message}</p>}
+                {formik.touched.gender && formik.errors.gender && (
+                  <p className="text-sm text-red-500 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    {formik.errors.gender}
+                  </p>
+                )}
               </div>
             </div>
           </section>
@@ -269,10 +366,17 @@ export default function StudentInfoPage() {
             <h2 className="text-lg font-semibold text-[#2F129B] mb-6">Course and Location Preference</h2>
 
             <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label>Counselling Type</Label>
-                <Select onValueChange={(v) => setValue('counsellingType', v)}>
-                  <SelectTrigger className="h-12">
+              {/* Counselling Type Field */}
+              <div
+                className="space-y-2 transition-all duration-200 rounded-lg p-2 -m-2"
+                ref={(el) => { fieldRefs.current['counsellingType'] = el; }}
+              >
+                <Label>Counselling Type <span className="text-red-500">*</span></Label>
+                <Select
+                  value={formik.values.counsellingType}
+                  onValueChange={(value) => formik.setFieldValue('counsellingType', value)}
+                >
+                  <SelectTrigger className={`h-12 ${formik.touched.counsellingType && formik.errors.counsellingType ? 'border-red-500' : ''}`}>
                     <SelectValue placeholder="Select Counselling Type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -283,13 +387,25 @@ export default function StudentInfoPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.counsellingType && <p className="text-sm text-red-500">{errors.counsellingType.message}</p>}
+                {formik.touched.counsellingType && formik.errors.counsellingType && (
+                  <p className="text-sm text-red-500 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    {formik.errors.counsellingType}
+                  </p>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <Label>Preferred Branch</Label>
-                <Select onValueChange={(v) => setValue('preferredBranch', v)}>
-                  <SelectTrigger className="h-12">
+              {/* Preferred Branch Field */}
+              <div
+                className="space-y-2 transition-all duration-200 rounded-lg p-2 -m-2"
+                ref={(el) => { fieldRefs.current['preferredBranch'] = el; }}
+              >
+                <Label>Preferred Branch <span className="text-red-500">*</span></Label>
+                <Select
+                  value={formik.values.preferredBranch}
+                  onValueChange={(value) => formik.setFieldValue('preferredBranch', value)}
+                >
+                  <SelectTrigger className={`h-12 ${formik.touched.preferredBranch && formik.errors.preferredBranch ? 'border-red-500' : ''}`}>
                     <SelectValue placeholder="Select Your Preferred Branch" />
                   </SelectTrigger>
                   <SelectContent>
@@ -300,17 +416,31 @@ export default function StudentInfoPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                {errors.preferredBranch && <p className="text-sm text-red-500">{errors.preferredBranch.message}</p>}
+                {formik.touched.preferredBranch && formik.errors.preferredBranch && (
+                  <p className="text-sm text-red-500 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    {formik.errors.preferredBranch}
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="mt-6">
-              <Label className="mb-3 block">Interested Study Location ( Select 3 locations according to your preference )</Label>
+              <Label className="mb-3 block">
+                Interested Study Location ( Select 3 locations according to your preference )
+              </Label>
               <div className="grid md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Select onValueChange={(v) => setValue('preference1', v)}>
-                    <SelectTrigger className="h-12">
-                      <SelectValue placeholder="1st Preference" />
+                {/* Preference 1 */}
+                <div
+                  className="space-y-2 transition-all duration-200 rounded-lg p-2 -m-2"
+                  ref={(el) => { fieldRefs.current['preference1'] = el; }}
+                >
+                  <Select
+                    value={formik.values.preference1}
+                    onValueChange={(value) => formik.setFieldValue('preference1', value)}
+                  >
+                    <SelectTrigger className={`h-12 ${formik.touched.preference1 && formik.errors.preference1 ? 'border-red-500' : ''}`}>
+                      <SelectValue placeholder="1st Preference *" />
                     </SelectTrigger>
                     <SelectContent>
                       {INDIAN_STATES.map((state) => (
@@ -320,11 +450,20 @@ export default function StudentInfoPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  {errors.preference1 && <p className="text-sm text-red-500">{errors.preference1.message}</p>}
+                  {formik.touched.preference1 && formik.errors.preference1 && (
+                    <p className="text-sm text-red-500 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      {formik.errors.preference1}
+                    </p>
+                  )}
                 </div>
 
+                {/* Preference 2 */}
                 <div className="space-y-2">
-                  <Select onValueChange={(v) => setValue('preference2', v)}>
+                  <Select
+                    value={formik.values.preference2}
+                    onValueChange={(value) => formik.setFieldValue('preference2', value)}
+                  >
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder="2nd Preference" />
                     </SelectTrigger>
@@ -338,8 +477,12 @@ export default function StudentInfoPage() {
                   </Select>
                 </div>
 
+                {/* Preference 3 */}
                 <div className="space-y-2">
-                  <Select onValueChange={(v) => setValue('preference3', v)}>
+                  <Select
+                    value={formik.values.preference3}
+                    onValueChange={(value) => formik.setFieldValue('preference3', value)}
+                  >
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder="3rd Preference" />
                     </SelectTrigger>
@@ -357,24 +500,35 @@ export default function StudentInfoPage() {
           </section>
 
           {/* Confirmation */}
-          <div className="flex items-start gap-3">
-            <Checkbox
-              id="confirmAccuracy"
-              onCheckedChange={(checked) => setValue('confirmAccuracy', checked === true)}
-            />
-            <Label htmlFor="confirmAccuracy" className="text-sm text-slate-600 leading-relaxed cursor-pointer">
-              I confirm that all the information provided is accurate and final. I agree to proceed with the entered details.
-            </Label>
+          <div
+            className="space-y-2 transition-all duration-200 rounded-lg p-2 -m-2"
+            ref={(el) => { fieldRefs.current['confirmAccuracy'] = el; }}
+          >
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="confirmAccuracy"
+                checked={formik.values.confirmAccuracy}
+                onCheckedChange={(checked) => formik.setFieldValue('confirmAccuracy', checked === true)}
+              />
+              <Label htmlFor="confirmAccuracy" className="text-sm text-slate-600 leading-relaxed cursor-pointer">
+                I confirm that all the information provided is accurate and final. I agree to proceed with the entered details. <span className="text-red-500">*</span>
+              </Label>
+            </div>
+            {formik.touched.confirmAccuracy && formik.errors.confirmAccuracy && (
+              <p className="text-sm text-red-500 flex items-center gap-1 ml-8">
+                <AlertTriangle className="h-3 w-3" />
+                {formik.errors.confirmAccuracy}
+              </p>
+            )}
           </div>
-          {errors.confirmAccuracy && <p className="text-sm text-red-500">{errors.confirmAccuracy.message}</p>}
 
           {/* Submit Button */}
           <div className="flex justify-center pt-4">
             <Button
               type="submit"
               size="lg"
-              className="h-14 px-12 bg-linear-to-r from-[#2F129B] to-[#6366F1] rounded-full 
-             font-normal text-base"
+              className="h-14 px-12 bg-gradient-to-r from-[#2F129B] to-[#6366F1] rounded-full 
+             font-normal text-base hover:shadow-lg transition-all"
               disabled={submitMutation.isPending || checksRemaining <= 0}
             >
               {submitMutation.isPending ? (

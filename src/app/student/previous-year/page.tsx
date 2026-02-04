@@ -15,6 +15,7 @@ import { useAuth, useRequireAuth } from '@/lib/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { INDIAN_STATES } from '@/lib/constants';
 import { LogoutModal } from '@/components/modals';
+import Image from 'next/image';
 
 interface College {
   id: string;
@@ -85,11 +86,11 @@ export default function PreviousYearPage() {
   const getChanceBadge = (chance: string) => {
     switch (chance) {
       case 'high':
-        return <Badge className="bg-green-50 text-green-700 border-green-200 hover:bg-green-50">High Chance</Badge>;
+        return <Badge className="bg-green-50 text-green-500 border-green-200 hover:bg-green-50 text-xs font-normal">High Chance</Badge>;
       case 'moderate':
-        return <Badge className="bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50">Moderate Chance</Badge>;
+        return <Badge className="bg-amber-50 text-amber-500 border-amber-200 hover:bg-amber-50 text-xs font-normal">Moderate Chance</Badge>;
       case 'low':
-        return <Badge className="bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-100">Low Chance</Badge>;
+        return <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100 text-xs font-normal">Low Chance</Badge>;
       default:
         return null;
     }
@@ -105,14 +106,13 @@ export default function PreviousYearPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Main Content */}
+    <div className="min-h-screen bg-white">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Title and Filters */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-medium text-slate-900">Previous Year Predictions</h1>
-            <p className="text-amber-600 flex items-center gap-2 mt-1 text-sm">
+            <h1 className="text-2xl sm:text-[26px] font-medium text-slate-900">Previous Year Predictions</h1>
+            <p className="text-amber-600 flex items-center gap-2 mt-1 text-xs">
               <AlertTriangle className="h-4 w-4" />
               The previous year college lists are generated using historical counselling data for the same rank and are for reference purpose only.
             </p>
@@ -146,9 +146,9 @@ export default function PreviousYearPage() {
             <button
               key={tab.value}
               onClick={() => setActiveTab(tab.value as typeof activeTab)}
-              className={`px-5 py-2 rounded-[8px] text-sm font-medium transition-colors ${activeTab === tab.value
+              className={`px-5 py-2 rounded-[8px] cursor-pointer  text-xs md:text-sm font-medium transition-colors ${activeTab === tab.value
                 ? 'bg-linear-to-r from-[#2F129B] to-[#3B82F6] text-white'
-                : 'bg-white text-slate-600  hover:bg-slate-50'
+                : '   text-slate-600  hover:bg-white'
                 }`}
             >
               {tab.label}
@@ -157,7 +157,7 @@ export default function PreviousYearPage() {
         </div>
 
         {/* Description */}
-        <p className="text-slate-600 mb-6">Previous Year (Colleges you would have gotten with your current rank)</p>
+        <p className="text-slate-600 text-sm mb-6">Previous Year (Colleges you would have gotten with your current rank)</p>
 
         {/* Loading State */}
         {isLoading ? (
@@ -167,53 +167,72 @@ export default function PreviousYearPage() {
         ) : years.length > 0 ? (
           <div className="space-y-8">
             {years.map((year) => (
-              <div key={year}>
+              <div key={year} className='border-l-4 rounded-[8px] border-[#4B5563] pl-3 md:pl-5 py-2'>
                 {/* Year Header */}
-                <h3 className="text-xl font-bold text-slate-900 mb-4">{year}</h3>
+                <h3 className=" text-[#1E1E1E] mb-4">{year}</h3>
 
                 {/* College List */}
-                <div className="space-y-4">
+                <div className="space-y-2">
                   {collegesByYear[year].map((college) => (
                     <div
                       key={college.id}
-                      className="bg-white rounded-xl border border-slate-100 overflow-hidden"
+                      className="bg-[#F9FAFB] rounded-xl border border-[#9FA6B2]/60
+                       overflow-hidden"
                     >
-                      <div className="flex items-center p-5">
-                        {/* Chance Indicator Bar */}
-                        <div className={`w-1 h-16 rounded-full ${getChanceIndicatorColor(college.chance)} mr-5`}></div>
+                      <div className="grid gap-y-4 lg:grid-cols-2 p-3 md:p-5">
 
                         {/* College Info */}
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-slate-900 text-lg">{college.collegeName}</h3>
-                          <p className="text-slate-500 text-sm">{college.collegeLocation}</p>
+
+                        <div className="flex-1 flex justify-between  h-full ">
+                          <div className='flex flex-col justify-center'>
+
+                            <h3 className="font-semibold text-[#4B5563] text-sm">{college.collegeName}</h3>
+                            <p className="text-[#4B5563] text-sm">{college.collegeLocation}</p>
+                          </div>
+                          {/* Actions */}
+                          <div className="md:hidden flex flex-col items-center gap-2 ml-6">
+                            {getChanceBadge(college.chance)}
+                            <button
+                              onClick={() => setExpandedCollege(expandedCollege === college.id ? null : college.id)}
+                              className="flex items-center gap-1 rounded-[8px] cursor-pointer
+                            py-1 px-2  border-2 border-[#3B82F6]/80  text-xs text-indigo-600 hover:text-indigo-700"
+                            >
+                              <Image src="/fileIcon.svg" alt="fileIcon" width={20} height={20} />
+                              View Details
+                            </button>
+                          </div>
                         </div>
 
-                        {/* Details Grid */}
-                        <div className="hidden sm:grid grid-cols-3 gap-8 text-center">
-                          <div>
-                            <p className="text-xs text-slate-400 mb-1">Quota</p>
-                            <p className="text-sm font-medium text-slate-700">{college.quota === 'all_india' ? 'All India' : college.quota.replace('_', ' ')}</p>
+                        <div className='flex items-center  h-full justify-between'>
+                          {/* Details Grid */}
+                          <div className=" h-full  grid grid-cols-3 gap-1 md:gap-3 
+                          text-center">
+                            <div className='bg-[#E7EAEE] rounded-lg p-1 md:p-2 px-3 h-full'>
+                              <p className=" text-[11px] md:text-xs text-slate-400 mb-1">Quota</p>
+                              <p className="text-sm font-medium text-slate-700">{college.quota === 'all_india' ? 'All India' : college.quota.replace('_', ' ')}</p>
+                            </div>
+                            <div className='bg-[#E7EAEE] rounded-lg p-1 md:p-2 px-3 h-full'>
+                              <p className=" text-[11px] md:text-xs text-slate-400 mb-1">Closing Rank</p>
+                              <p className="text-sm font-medium text-slate-700">{college.closingRank.toLocaleString()}</p>
+                            </div>
+                            <div className='bg-[#E7EAEE] rounded-lg p-1 md:p-2 px-3 h-full'>
+                              <p className=" text-[11px] md:text-xs text-slate-400 mb-1">Course</p>
+                              <p className="text-sm font-medium text-slate-700">{college.branch.toUpperCase()}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-xs text-slate-400 mb-1">Closing Rank</p>
-                            <p className="text-sm font-medium text-slate-700">{college.closingRank.toLocaleString()}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-slate-400 mb-1">Course</p>
-                            <p className="text-sm font-medium text-slate-700">{college.branch.toUpperCase()}</p>
-                          </div>
-                        </div>
 
-                        {/* Actions */}
-                        <div className="flex flex-col items-end gap-2 ml-6">
-                          {getChanceBadge(college.chance)}
-                          <button
-                            onClick={() => setExpandedCollege(expandedCollege === college.id ? null : college.id)}
-                            className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700"
-                          >
-                            <ChevronDown className={`h-4 w-4 transition-transform ${expandedCollege === college.id ? 'rotate-180' : ''}`} />
-                            View Details
-                          </button>
+                          {/* Actions */}
+                          <div className="hidden md:flex flex-col items-center gap-2 ml-6">
+                            {getChanceBadge(college.chance)}
+                            <button
+                              onClick={() => setExpandedCollege(expandedCollege === college.id ? null : college.id)}
+                              className="flex items-center gap-1 rounded-[8px] cursor-pointer
+                            py-1 px-2  border-2 border-[#3B82F6]/80  text-xs text-indigo-600 hover:text-indigo-700"
+                            >
+                              <Image src="/fileIcon.svg" alt="fileIcon" width={20} height={20} />
+                              View Details
+                            </button>
+                          </div>
                         </div>
                       </div>
 
