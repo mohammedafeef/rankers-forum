@@ -10,6 +10,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 
 const cutoffsCollection = adminDb.collection(COLLECTIONS.COLLEGE_RANK_CUTOFFS);
 const locationsCollection = adminDb.collection(COLLECTIONS.LOCATIONS);
+const coursesCollection = adminDb.collection(COLLECTIONS.COURSES);
 
 // ============================================
 // Chance Calculation
@@ -269,4 +270,67 @@ export async function getLocations(): Promise<Location[]> {
     id: doc.id,
     ...doc.data(),
   } as Location));
+}
+
+// ============================================
+// Course Functions
+// ============================================
+
+export interface Course {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+/**
+ * Sync courses - check existing and add new ones from the upload
+ */
+export async function syncCourses(courseNames: string[]): Promise<number> {
+  const BATCH_SIZE = 500;
+
+  // Get unique, non-empty courses
+  const uniqueCourses = [...new Set(courseNames.filter(l => l && l.trim()))];
+
+  // Clear existing courses
+  const existingSnapshot = await coursesCollection.get();
+  for (let i = 0; i < existingSnapshot.docs.length; i += BATCH_SIZE) {
+    const batch = adminDb.batch();
+    const chunk = existingSnapshot.docs.slice(i, i + BATCH_SIZE);
+    for (const doc of chunk) {
+      batch.delete(doc.ref);
+    }
+    await batch.commit();
+  }
+
+  // Add new courses
+  for (let i = 0; i < uniqueCourses.length; i += BATCH_SIZE) {
+    const batch = adminDb.batch();
+    const chunk = uniqueCourses.slice(i, i + BATCH_SIZE);
+
+    for (const name of chunk) {
+      const docRef = coursesCollection.doc();
+      batch.set(docRef, {
+        name: name.trim(),
+        isActive: true,
+      });
+    }
+
+    await batch.commit();
+  }
+
+  return uniqueCourses.length;
+}
+
+/**
+ * Get all active courses
+ */
+export async function getCourses(): Promise<Course[]> {
+  const snapshot = await coursesCollection
+    .where('isActive', '==', true)
+    .get();
+
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  } as Course));
 }

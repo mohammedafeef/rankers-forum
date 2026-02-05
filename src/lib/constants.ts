@@ -9,6 +9,7 @@ export const COLLECTIONS = {
   LEADS: 'leads',
   LEAD_FOLLOWUPS: 'lead_followups',
   LOCATIONS: 'locations',
+  COURSES: 'courses',
   COLLEGE_RANK_CUTOFFS: 'college_rank_cutoffs',
   EXCEL_UPLOAD_LOGS: 'excel_upload_logs',
   DASHBOARD_STATS: 'dashboard_stats',
@@ -42,15 +43,6 @@ export const COUNSELLING_TYPES = [
 
 // Alias for quota types
 export const QUOTA_TYPES = COUNSELLING_TYPES;
-
-export const BRANCHES = [
-  { value: 'mbbs', label: 'MBBS' },
-  { value: 'bds', label: 'BDS' },
-  { value: 'ayush', label: 'AYUSH' },
-] as const;
-
-// Alias for medical branches
-export const MEDICAL_BRANCHES = BRANCHES;
 
 export const QUOTAS = [
   { value: 'all_india', label: 'All India' },

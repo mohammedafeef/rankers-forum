@@ -21,7 +21,6 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   NEET_CATEGORIES,
   QUOTA_TYPES,
-  MEDICAL_BRANCHES,
   INDIAN_STATES,
   GENDERS,
 } from '@/lib/constants';
@@ -79,8 +78,18 @@ export default function StudentInfoPage() {
       return response.json();
     },
   });
-
   const locations = locationsData?.locations || [];
+  
+  // Fetch available courses from API
+  const { data: coursesData, isLoading: coursesLoading } = useQuery<{ courses: string[] }>({
+    queryKey: ['courses'],
+    queryFn: async () => {
+      const response = await fetch('/api/colleges/courses');
+      if (!response.ok) throw new Error('Failed to fetch courses');
+      return response.json();
+    },
+  });
+  const courses = coursesData?.courses || [];
 
   const submitMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -421,11 +430,17 @@ export default function StudentInfoPage() {
                     <SelectValue placeholder="Select Your Preferred Branch" />
                   </SelectTrigger>
                   <SelectContent>
-                    {MEDICAL_BRANCHES.map((branch) => (
-                      <SelectItem key={branch.value} value={branch.value}>
-                        {branch.label}
-                      </SelectItem>
-                    ))}
+                    {coursesLoading ? (
+                      <SelectItem value="loading" disabled>Loading...</SelectItem>
+                    ) : courses.length > 0 ? (
+                      courses.map((course) => (
+                        <SelectItem key={course} value={course}>
+                          {course}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-courses" disabled>No courses available</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
                 {formik.touched.preferredBranch && formik.errors.preferredBranch && (
