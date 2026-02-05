@@ -263,7 +263,6 @@ export async function syncLocations(locationNames: string[]): Promise<number> {
 export async function getLocations(): Promise<Location[]> {
   const snapshot = await locationsCollection
     .where('isActive', '==', true)
-    .orderBy('name')
     .get();
 
   return snapshot.docs.map(doc => ({

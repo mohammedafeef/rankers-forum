@@ -8,7 +8,7 @@ import { COLLECTIONS } from '@/lib/constants';
  */
 async function verifySuperAdminSession(request: NextRequest): Promise<string | null> {
   const sessionCookie = request.cookies.get('session')?.value;
-  
+
   if (!sessionCookie) {
     return null;
   }
@@ -16,11 +16,11 @@ async function verifySuperAdminSession(request: NextRequest): Promise<string | n
   try {
     const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
     const user = await getUserById(decoded.uid);
-    
+
     if (!user || user.role !== 'super_admin') {
       return null;
     }
-    
+
     return decoded.uid;
   } catch {
     return null;
@@ -34,7 +34,7 @@ async function verifySuperAdminSession(request: NextRequest): Promise<string | n
 export async function GET(request: NextRequest) {
   try {
     const superAdminUid = await verifySuperAdminSession(request);
-    
+
     if (!superAdminUid) {
       return NextResponse.json({ error: 'Super admin access required' }, { status: 403 });
     }
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     // Query users with student role
     let usersQuery = usersCollection.where('role', '==', 'student');
-    
+
     if (stateFilter && stateFilter !== 'all') {
       usersQuery = usersQuery.where('state', '==', stateFilter);
     }
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
 
     for (const userDoc of usersSnapshot.docs) {
       const userData = userDoc.data();
-      
+
       // Get student profile
       const studentDoc = await studentsCollection.doc(userDoc.id).get();
       const studentData = studentDoc.exists ? studentDoc.data() : null;
@@ -92,9 +92,9 @@ export async function GET(request: NextRequest) {
         counsellingType: studentData?.counsellingType || '',
         preferredBranch: studentData?.preferredBranch || '',
         interestedLocations: [
-          studentData?.statePreference1,
-          studentData?.statePreference2,
-          studentData?.statePreference3,
+          studentData?.locationPreference1,
+          studentData?.locationPreference2,
+          studentData?.locationPreference3,
         ].filter(Boolean),
         hasCallback,
       });

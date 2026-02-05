@@ -70,6 +70,18 @@ export default function StudentInfoPage() {
     enabled: !!isAuthorized,
   });
 
+  // Fetch available locations from API
+  const { data: locationsData, isLoading: locationsLoading } = useQuery<{ locations: string[] }>({
+    queryKey: ['locations'],
+    queryFn: async () => {
+      const response = await fetch('/api/colleges/locations');
+      if (!response.ok) throw new Error('Failed to fetch locations');
+      return response.json();
+    },
+  });
+
+  const locations = locationsData?.locations || [];
+
   const submitMutation = useMutation({
     mutationFn: async (data: any) => {
       // First save profile
@@ -85,9 +97,9 @@ export default function StudentInfoPage() {
           domicileState: data.domicileState,
           counsellingType: data.counsellingType,
           preferredBranch: data.preferredBranch,
-          statePreference1: data.preference1,
-          statePreference2: data.preference2,
-          statePreference3: data.preference3,
+          locationPreference1: data.preference1,
+          locationPreference2: data.preference2,
+          locationPreference3: data.preference3,
         }),
       });
 
@@ -443,11 +455,17 @@ export default function StudentInfoPage() {
                       <SelectValue placeholder="1st Preference *" />
                     </SelectTrigger>
                     <SelectContent>
-                      {INDIAN_STATES.map((state) => (
-                        <SelectItem key={state} value={state}>
-                          {state}
-                        </SelectItem>
-                      ))}
+                      {locationsLoading ? (
+                        <SelectItem value="loading" disabled>Loading...</SelectItem>
+                      ) : locations.length > 0 ? (
+                        locations.map((location) => (
+                          <SelectItem key={location} value={location}>
+                            {location}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-locations" disabled>No locations available</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   {formik.touched.preference1 && formik.errors.preference1 && (
@@ -468,11 +486,17 @@ export default function StudentInfoPage() {
                       <SelectValue placeholder="2nd Preference" />
                     </SelectTrigger>
                     <SelectContent>
-                      {INDIAN_STATES.map((state) => (
-                        <SelectItem key={state} value={state}>
-                          {state}
-                        </SelectItem>
-                      ))}
+                      {locationsLoading ? (
+                        <SelectItem value="loading" disabled>Loading...</SelectItem>
+                      ) : locations.length > 0 ? (
+                        locations.map((location) => (
+                          <SelectItem key={location} value={location}>
+                            {location}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-locations" disabled>No locations available</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -487,11 +511,17 @@ export default function StudentInfoPage() {
                       <SelectValue placeholder="3rd Preference" />
                     </SelectTrigger>
                     <SelectContent>
-                      {INDIAN_STATES.map((state) => (
-                        <SelectItem key={state} value={state}>
-                          {state}
-                        </SelectItem>
-                      ))}
+                      {locationsLoading ? (
+                        <SelectItem value="loading" disabled>Loading...</SelectItem>
+                      ) : locations.length > 0 ? (
+                        locations.map((location) => (
+                          <SelectItem key={location} value={location}>
+                            {location}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-locations" disabled>No locations available</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>

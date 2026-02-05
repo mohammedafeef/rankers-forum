@@ -53,9 +53,9 @@ export interface Student {
   domicileState: string;
   counsellingType: string;
   preferredBranch: string;
-  statePreference1: string;
-  statePreference2: string;
-  statePreference3: string;
+  locationPreference1: string;
+  locationPreference2: string;
+  locationPreference3: string;
   checksUsed: number;
   isProfileComplete: boolean;
   createdAt: FirestoreTimestamp;
@@ -71,9 +71,9 @@ export interface CreateStudentInput {
   domicileState: string;
   counsellingType: string;
   preferredBranch: string;
-  statePreference1: string;
-  statePreference2: string;
-  statePreference3: string;
+  locationPreference1: string;
+  locationPreference2: string;
+  locationPreference3: string;
 }
 
 // ============================================

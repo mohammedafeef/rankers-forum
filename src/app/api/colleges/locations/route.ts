@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
         const locations = await getLocations();
 
         return NextResponse.json({
-            locations: locations.map(l => l.name),
+            locations: locations.map(l => l.name).sort((a, b) => a.localeCompare(b)),
             totalCount: locations.length,
         });
     } catch (error) {
