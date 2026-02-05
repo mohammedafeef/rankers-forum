@@ -116,43 +116,76 @@ export async function getEligibleColleges(options: {
   quota?: string;
   collegeType?: CollegeType;
   locations?: string[];
-}): Promise<CollegeWithChance[]> {
-  let query = cutoffsCollection
+}): Promise<{ primary: CollegeWithChance[]; others: CollegeWithChance[] }> {
+  let baseQuery = cutoffsCollection
     .where('courseName', '==', options.courseName)
     .where('year', '==', options.year)
     // .where('category', '==', options.category)
     .where('rank', '>=', options.studentRank)
     .orderBy('rank')
-    .limit(500);
-  
-  if(options.locations && options.locations.length > 0) {
-    query = query.where('collegeLocation', 'in', options.locations);
-  }
+    .limit(300);
 
   if (options.collegeType) {
-    query = query.where('collegeType', '==', options.collegeType);
+    baseQuery = baseQuery.where('collegeType', '==', options.collegeType);
   }
 
-  const snapshot = await query.get();
+  let query = baseQuery;
+  if (options.locations && options.locations.length > 0) {
+    query = baseQuery.where('collegeLocation', 'in', options.locations);
+  }
 
-  let results = snapshot.docs.map(doc => {
+  let snapshot = await query.get();
+  let isFallback = false;
+
+  // If we have location constraints and found few results, try without location constraints
+  if (snapshot.size < 30 && options.locations && options.locations.length > 0) {
+    snapshot = await baseQuery.get();
+    isFallback = true;
+  }
+
+  const primary: CollegeWithChance[] = [];
+  const others: CollegeWithChance[] = [];
+  const locationSet = options.locations ? new Set(options.locations) : null;
+
+  snapshot.docs.forEach(doc => {
     const data = doc.data() as Omit<CollegeRankCutoff, 'id'>;
     const chance = calculateChance(options.studentRank, data.rank);
 
-    return {
+    const college = {
       id: doc.id,
       ...data,
       chance,
       chanceLabel: getChanceLabel(chance),
     } as CollegeWithChance;
+
+    // Distribute to primary or others list
+    if (options.locations && options.locations.length > 0) {
+      if (isFallback) {
+        if (locationSet?.has(data.collegeLocation)) {
+          primary.push(college);
+        } else {
+          others.push(college);
+        }
+      } else {
+        primary.push(college);
+      }
+    } else {
+      primary.push(college);
+    }
   });
 
-  return results;
+  return { primary, others };
 }
 
 /**
  * Get previous year cutoffs for a student's rank
  */
+
+interface PreviousYearCutoffs {
+  colleges: CollegeWithChance[];
+  otherColleges: CollegeWithChance[];
+  totalCount: number;
+}
 export async function getPreviousYearCutoffs(options: {
   studentRank: number;
   courseName: string;
@@ -161,13 +194,13 @@ export async function getPreviousYearCutoffs(options: {
   yearsBack?: number;
   collegeType?: CollegeType;
   locations?: string[];
-}): Promise<Record<number, CollegeWithChance[]>> {
+}): Promise<Record<number, PreviousYearCutoffs>> {
   const yearsBack = options.yearsBack || 2;
-  const results: Record<number, CollegeWithChance[]> = {};
+  const results: Record<number, PreviousYearCutoffs> = {};
 
   for (let i = 1; i <= yearsBack; i++) {
     const year = options.currentYear - i;
-    const colleges = await getEligibleColleges({
+    const { primary, others } = await getEligibleColleges({
       studentRank: options.studentRank,
       courseName: options.courseName,
       category: options.category,
@@ -176,7 +209,7 @@ export async function getPreviousYearCutoffs(options: {
       locations: options.locations,
     });
 
-    results[year] = colleges;
+    results[year] = {colleges: primary, otherColleges: others, totalCount: primary.length + others.length};
   }
 
   return results;

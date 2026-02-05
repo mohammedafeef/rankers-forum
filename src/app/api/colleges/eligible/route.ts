@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state');
 
     // Get eligible colleges
-    const colleges = await getEligibleColleges({
+    const { primary, others } = await getEligibleColleges({
       studentRank: student.rank,
       courseName: student.preferredBranch,
       category: student.category,
@@ -100,8 +100,9 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      colleges,
-      totalCount: colleges.length,
+      colleges: primary,
+      otherColleges: others,
+      totalCount: primary.length + others.length,
       currentYear: CURRENT_YEAR,
     });
   } catch (error) {
