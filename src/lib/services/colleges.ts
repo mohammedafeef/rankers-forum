@@ -120,11 +120,14 @@ export async function getEligibleColleges(options: {
   let query = cutoffsCollection
     .where('courseName', '==', options.courseName)
     .where('year', '==', options.year)
-    .where('collegeLocation', 'in', options.locations || [])
     // .where('category', '==', options.category)
     .where('rank', '>=', options.studentRank)
     .orderBy('rank')
-    .limit(300);
+    .limit(500);
+  
+  if(options.locations && options.locations.length > 0) {
+    query = query.where('collegeLocation', 'in', options.locations);
+  }
 
   if (options.collegeType) {
     query = query.where('collegeType', '==', options.collegeType);
