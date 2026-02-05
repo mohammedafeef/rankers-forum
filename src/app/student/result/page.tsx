@@ -22,11 +22,10 @@ interface College {
   collegeName: string;
   collegeLocation: string;
   collegeType: string;
-  branch: string;
+  courseName: string;
   quota: string;
   category: string;
-  openingRank: number;
-  closingRank: number;
+  rank: number;
   chance: 'high' | 'moderate' | 'low';
 }
 
@@ -53,6 +52,7 @@ export default function StudentResultPage() {
     if (stored) {
       try {
         setResultData(JSON.parse(stored));
+        console.log("Result Data: ", JSON.parse(stored));
       } catch {
         router.push('/student/info');
       }
@@ -77,10 +77,14 @@ export default function StudentResultPage() {
 
   const colleges = resultData.colleges || [];
   const filteredColleges = colleges.filter(college => {
-    const matchesType = college.collegeType === activeTab;
-    const matchesState = stateFilter === 'all' || college.collegeLocation.includes(stateFilter);
-    return matchesType && matchesState;
+    return true;
+    // No data in the table
+    // const matchesType = college.collegeType === activeTab;
+    // const matchesState = stateFilter === 'all' || college.collegeLocation.includes(stateFilter);
+    // return matchesType && matchesState;
   });
+
+  console.log("Filtered Colleges: ", filteredColleges);
 
   const getChanceBadge = (chance: string) => {
     switch (chance) {
@@ -147,8 +151,8 @@ export default function StudentResultPage() {
               key={tab.value}
               onClick={() => setActiveTab(tab.value as typeof activeTab)}
               className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${activeTab === tab.value
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
                 }`}
             >
               {tab.label}
@@ -181,15 +185,16 @@ export default function StudentResultPage() {
                   <div className="hidden sm:grid grid-cols-3 gap-8 text-center">
                     <div>
                       <p className="text-xs text-slate-400 mb-1">Quota</p>
-                      <p className="text-sm font-medium text-slate-700">{college.quota === 'all_india' ? 'All India' : college.quota.replace('_', ' ')}</p>
+                      {/* <p className="text-sm font-medium text-slate-700">{college.quota === 'all_india' ? 'All India' : college.quota?.replace('_', ' ')}</p> */}
+                      <p className="text-sm font-medium text-slate-700">All India</p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-400 mb-1">Closing Rank</p>
-                      <p className="text-sm font-medium text-slate-700">{college.closingRank.toLocaleString()}</p>
+                      <p className="text-sm font-medium text-slate-700">{college.rank.toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-400 mb-1">Course</p>
-                      <p className="text-sm font-medium text-slate-700">{college.branch.toUpperCase()}</p>
+                      <p className="text-sm font-medium text-slate-700">{college.courseName}</p>
                     </div>
                   </div>
 
@@ -214,17 +219,18 @@ export default function StudentResultPage() {
                         <p className="text-slate-500">Category</p>
                         <p className="font-medium">{college.category.toUpperCase()}</p>
                       </div>
-                      <div>
+                      {/* <div>
                         <p className="text-slate-500">Opening Rank</p>
                         <p className="font-medium">{college.openingRank.toLocaleString()}</p>
-                      </div>
+                      </div> */}
                       <div>
                         <p className="text-slate-500">Closing Rank</p>
-                        <p className="font-medium">{college.closingRank.toLocaleString()}</p>
+                        <p className="font-medium">{college.rank.toLocaleString()}</p>
                       </div>
                       <div>
                         <p className="text-slate-500">Quota</p>
-                        <p className="font-medium">{college.quota === 'all_india' ? 'All India' : college.quota.replace('_', ' ')}</p>
+                        {/* <p className="font-medium">{college.quota === 'all_india' ? 'All India' : college.quota.replace('_', ' ')}</p> */}
+                        <p className="font-medium">All India</p>
                       </div>
                     </div>
                   </div>

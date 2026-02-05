@@ -113,15 +113,18 @@ export async function getEligibleColleges(options: {
   courseName: string;
   category: string;
   year: number;
+  quota?: string;
   collegeType?: CollegeType;
-  location?: string;
+  locations?: string[];
 }): Promise<CollegeWithChance[]> {
   let query = cutoffsCollection
     .where('courseName', '==', options.courseName)
     .where('year', '==', options.year)
-    .where('category', '==', options.category)
+    .where('collegeLocation', 'in', options.locations || [])
+    // .where('category', '==', options.category)
     .where('rank', '>=', options.studentRank)
-    .orderBy('rank');
+    .orderBy('rank')
+    .limit(300);
 
   if (options.collegeType) {
     query = query.where('collegeType', '==', options.collegeType);
@@ -141,11 +144,6 @@ export async function getEligibleColleges(options: {
     } as CollegeWithChance;
   });
 
-  // Filter by location if specified (done in memory due to Firestore limitations)
-  if (options.location) {
-    results = results.filter(r => r.collegeLocation === options.location);
-  }
-
   return results;
 }
 
@@ -159,7 +157,7 @@ export async function getPreviousYearCutoffs(options: {
   currentYear: number;
   yearsBack?: number;
   collegeType?: CollegeType;
-  location?: string;
+  locations?: string[];
 }): Promise<Record<number, CollegeWithChance[]>> {
   const yearsBack = options.yearsBack || 2;
   const results: Record<number, CollegeWithChance[]> = {};
@@ -172,7 +170,7 @@ export async function getPreviousYearCutoffs(options: {
       category: options.category,
       year,
       collegeType: options.collegeType,
-      location: options.location,
+      locations: options.locations,
     });
 
     results[year] = colleges;

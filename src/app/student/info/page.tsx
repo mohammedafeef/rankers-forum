@@ -119,12 +119,7 @@ export default function StudentInfoPage() {
 
       // Then get eligible colleges
       const params = new URLSearchParams({
-        rank: data.rank,
-        category: data.category,
-        quota: data.counsellingType,
-        branch: data.preferredBranch,
         domicileState: data.domicileState,
-        year: data.year,
       });
 
       const collegesResponse = await fetch(`/api/colleges/eligible?${params}`);
