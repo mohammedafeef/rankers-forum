@@ -35,7 +35,7 @@ export default function ProfilePage() {
   const { data: profileData, isLoading } = useQuery({
     queryKey: ['admin-profile'],
     queryFn: async () => {
-      const response = await fetch('/api/admin/profile');
+      const response = await fetch('/api/profile');
       if (!response.ok) throw new Error('Failed to fetch profile');
       return response.json();
     },
@@ -56,7 +56,18 @@ export default function ProfilePage() {
     );
   }
 
-  const profile: AdminProfile = profileData?.profile || {};
+  // Combine user and admin profile data
+  const profile: AdminProfile = {
+    ...profileData?.user,
+    ...profileData?.adminProfile,
+    // Format dates specifically
+    dateOfBirth: profileData?.adminProfile?.dateOfBirth?._seconds
+      ? new Date(profileData.adminProfile.dateOfBirth._seconds * 1000).toLocaleDateString('en-IN')
+      : profileData?.adminProfile?.dateOfBirth || '-',
+    dateOfJoining: profileData?.adminProfile?.dateOfJoining?._seconds
+      ? new Date(profileData.adminProfile.dateOfJoining._seconds * 1000).toLocaleDateString('en-IN')
+      : profileData?.adminProfile?.dateOfJoining || '-',
+  };
 
   return (
     <AdminLayout title="My Profile">

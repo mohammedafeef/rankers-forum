@@ -90,6 +90,7 @@ export interface AdminProfile {
   jobType: JobType;
   noticePeriod: string;
   dateOfBirth: FirestoreTimestamp;
+  gender: Gender;
   maritalStatus: string;
   bloodGroup: string;
   nationality: string;

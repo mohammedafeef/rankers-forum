@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Phone, Eye, MessageSquare, Search } from 'lucide-react';
-import { AdminSidebar } from '@/components/layout';
+import { AdminLayout } from '@/components/layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -163,10 +163,9 @@ export default function AdminLeadsPage() {
   );
 
   return (
-    <AdminSidebar>
+    <AdminLayout title="Assigned Leads">
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Assigned Leads</h1>
           <p className="text-slate-600">Manage your assigned callback requests</p>
         </div>
 
@@ -403,6 +402,6 @@ export default function AdminLeadsPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </AdminSidebar>
+    </AdminLayout>
   );
 }

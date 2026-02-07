@@ -79,7 +79,7 @@ export default function StudentInfoPage() {
     },
   });
   const locations = locationsData?.locations || [];
-  
+
   // Fetch available courses from API
   const { data: coursesData, isLoading: coursesLoading } = useQuery<{ courses: string[] }>({
     queryKey: ['courses'],
@@ -90,7 +90,6 @@ export default function StudentInfoPage() {
     },
   });
   const courses = coursesData?.courses || [];
-
   const submitMutation = useMutation({
     mutationFn: async (data: any) => {
       // First save profile

@@ -97,6 +97,7 @@ export async function GET(request: NextRequest) {
           studentData?.locationPreference3,
         ].filter(Boolean),
         hasCallback,
+        leadId: !callbackSnapshot.empty ? callbackSnapshot.docs[0].id : null,
       });
     }
 

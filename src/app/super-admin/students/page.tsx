@@ -25,6 +25,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { INDIAN_STATES } from '@/lib/constants';
 import { TableShimmer } from '@/components/ui/table-shimmer';
 import { Pagination } from '@/components/ui/pagination';
+import Image from 'next/image';
 
 interface Student {
   id: string;
@@ -45,6 +46,7 @@ interface Student {
   preferredBranch: string;
   interestedLocations: string[];
   hasCallback: boolean;
+  leadId?: string;
 }
 
 interface Lead {
@@ -62,7 +64,7 @@ export default function StudentsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isAuthorized, loading: authLoading } = useRequireAuth(['super_admin']);
-  
+
   const [activeTab, setActiveTab] = useState<'details' | 'callback'>('details');
   const [stateFilter, setStateFilter] = useState('all');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -115,6 +117,9 @@ export default function StudentsPage() {
   // Assign lead mutation
   const assignMutation = useMutation({
     mutationFn: async ({ leadId, adminId }: { leadId: string; adminId: string }) => {
+      if (!leadId) {
+        throw new Error('Missing Callback ID. Please refresh the page.');
+      }
       const response = await fetch(`/api/admin/leads/${leadId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -125,6 +130,7 @@ export default function StudentsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['callback-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-students'] });
       setAssignModalOpen(false);
       setSelectedLead(null);
       setSelectedAdminId('');
@@ -155,7 +161,7 @@ export default function StudentsPage() {
   // Filter students based on search query
   const filteredStudents = students.filter((student) => {
     if (!searchQuery.trim()) return true;
-    
+
     const query = searchQuery.toLowerCase();
     return (
       `${student.firstName} ${student.lastName}`.toLowerCase().includes(query) ||
@@ -170,14 +176,14 @@ export default function StudentsPage() {
   // Filter leads based on search query
   const filteredLeads = leads.filter((lead) => {
     if (!searchQuery.trim()) return true;
-    
+
     const query = searchQuery.toLowerCase();
     return (
       lead.studentName?.toLowerCase().includes(query) ||
       lead.studentPhone?.toLowerCase().includes(query) ||
-      lead.studentState?.toLowerCase().includes(query) ||
-      lead.course?.toLowerCase().includes(query) ||
-      lead.rank?.toString().includes(query)
+      (lead as any).studentLocation?.toLowerCase().includes(query) ||
+      (lead as any).preferredBranch?.toLowerCase().includes(query) ||
+      (lead as any).rankUsed?.toString().includes(query)
     );
   });
 
@@ -221,6 +227,27 @@ export default function StudentsPage() {
     setAssignModalOpen(true);
   };
 
+  const handleAssignCallbackFromStudent = (student: Student) => {
+    if (!student.hasCallback) return;
+
+    // Construct a Lead object from Student data
+    // Note: Assuming student.leadId is available from the API.
+    // If not, we might need to fallback to something else or the mutation might fail.
+    const lead: Lead = {
+      id: student.leadId || '',
+      studentId: student.id,
+      studentName: `${student.firstName} ${student.lastName}`,
+      studentPhone: student.phone,
+      studentState: student.state,
+      rank: student.rank,
+      course: student.preferredBranch || '',
+      status: 'pending'
+    };
+
+    setSelectedLead(lead);
+    setAssignModalOpen(true);
+  };
+
   return (
     <AdminLayout
       title="Students Details"
@@ -254,21 +281,19 @@ export default function StudentsPage() {
         <div className="flex gap-4">
           <button
             onClick={() => handleTabChange('details')}
-            className={`text-sm font-medium pb-2 border-b-2 transition-colors ${
-              activeTab === 'details'
-                ? 'text-slate-900 border-indigo-600'
-                : 'text-slate-500 border-transparent hover:text-slate-700'
-            }`}
+            className={`text-sm font-medium pb-2 border-b-2 transition-colors ${activeTab === 'details'
+              ? 'text-slate-900 border-indigo-600'
+              : 'text-slate-500 border-transparent hover:text-slate-700'
+              }`}
           >
             Students Details
           </button>
           <button
             onClick={() => handleTabChange('callback')}
-            className={`text-sm font-medium pb-2 border-b-2 transition-colors ${
-              activeTab === 'callback'
-                ? 'text-slate-900 border-indigo-600'
-                : 'text-slate-500 border-transparent hover:text-slate-700'
-            }`}
+            className={`text-sm font-medium pb-2 border-b-2 transition-colors ${activeTab === 'callback'
+              ? 'text-slate-900 border-indigo-600'
+              : 'text-slate-500 border-transparent hover:text-slate-700'
+              }`}
           >
             Callback Request
           </button>
@@ -279,7 +304,7 @@ export default function StudentsPage() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             type="text"
-            placeholder={activeTab === 'details' 
+            placeholder={activeTab === 'details'
               ? "Search by name, email, phone, location, or rank..."
               : "Search by name, phone, state, course, or rank..."}
             value={searchQuery}
@@ -306,22 +331,22 @@ export default function StudentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-              {studentsLoading ? (
-                <TableShimmer rows={6} columns={7} />
-              ) : filteredStudents.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-16">
-                    <div className="flex items-center justify-center min-h-96">
-                      <p className="text-slate-500 text-sm">
-                        {searchQuery 
-                          ? `No students found matching "${searchQuery}".` 
-                          : 'No students found.'}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                paginatedStudents.map((student) => (
+                {studentsLoading ? (
+                  <TableShimmer rows={6} columns={7} />
+                ) : filteredStudents.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-16">
+                      <div className="flex items-center justify-center min-h-96">
+                        <p className="text-slate-500 text-sm">
+                          {searchQuery
+                            ? `No students found matching "${searchQuery}".`
+                            : 'No students found.'}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedStudents.map((student) => (
                     <tr key={student.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 text-sm text-slate-900">
                         {student.firstName} {student.lastName}
@@ -334,21 +359,30 @@ export default function StudentsPage() {
                       <td className="px-6 py-4 text-sm text-slate-600">{student.rank || '-'}</td>
                       <td className="px-6 py-4">
                         {student.hasCallback ? (
-                          <Badge className="bg-green-50 text-green-700 border-green-200">Yes</Badge>
+                          <Badge className="bg-[#EE7701] text-white border-0">Yes</Badge>
                         ) : (
-                          <Badge className="bg-slate-100 text-slate-600 border-slate-200">No</Badge>
+                          <Badge className="bg-[#4B5563] text-white border-0">No</Badge>
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-4">
                           <button
                             onClick={() => handleViewDetails(student)}
                             className="text-indigo-600 hover:text-indigo-700"
                           >
-                            <Users className="h-5 w-5" />
+                            <Image src="/details.svg" alt="Details" width={24} height={24} />
                           </button>
-                          <button className="text-slate-400 hover:text-slate-600">
-                            <Download className="h-5 w-5" />
+                          <button
+                            onClick={() => student.hasCallback && handleAssignCallbackFromStudent(student)}
+                            className={`text-slate-400 ${student.hasCallback ? 'cursor-pointer' : 'cursor-not-allowed'}  hover:text-slate-600`}
+                          >
+                            {
+                              student.hasCallback ? (
+                                <Image src="/callbackBlue.svg" alt="Callback" width={24} height={24} />
+                              ) : (
+                                <Image src="/callbackGray.svg" alt="Callback" width={24} height={24} />
+                              )
+                            }
                           </button>
                         </div>
                       </td>
@@ -358,7 +392,7 @@ export default function StudentsPage() {
               </tbody>
             </table>
           </div>
-          
+
           {/* Pagination */}
           {!studentsLoading && filteredStudents.length > 0 && (
             <Pagination
@@ -389,28 +423,28 @@ export default function StudentsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-              {leadsLoading ? (
-                <TableShimmer rows={6} columns={7} />
-              ) : filteredLeads.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-16">
-                    <div className="flex items-center justify-center min-h-96">
-                      <p className="text-slate-500 text-sm">
-                        {searchQuery 
-                          ? `No callback requests found matching "${searchQuery}".` 
-                          : 'No callback requests found.'}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                paginatedLeads.map((lead) => (
+                {leadsLoading ? (
+                  <TableShimmer rows={6} columns={7} />
+                ) : filteredLeads.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-16">
+                      <div className="flex items-center justify-center min-h-96">
+                        <p className="text-slate-500 text-sm">
+                          {searchQuery
+                            ? `No callback requests found matching "${searchQuery}".`
+                            : 'No callback requests found.'}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedLeads.map((lead: any) => (
                     <tr key={lead.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 text-sm text-slate-900">{lead.studentName}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{lead.studentState}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{lead.studentLocation}</td>
                       <td className="px-6 py-4 text-sm text-slate-600">{lead.studentPhone}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{lead.rank}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{lead.course}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{lead.rankUsed}</td>
+                      <td className="px-6 py-4 text-sm text-slate-600">{lead.preferredBranch}</td>
                       <td className="px-6 py-4">
                         <Badge className="bg-amber-50 text-amber-700 border-amber-200">
                           Not Assigned
@@ -435,7 +469,7 @@ export default function StudentsPage() {
               </tbody>
             </table>
           </div>
-          
+
           {/* Pagination */}
           {!leadsLoading && filteredLeads.length > 0 && (
             <Pagination
@@ -455,7 +489,7 @@ export default function StudentsPage() {
           <DialogHeader>
             <DialogTitle>Student Details</DialogTitle>
           </DialogHeader>
-          
+
           {selectedStudent && (
             <div className="space-y-6">
               {/* Basic and Academic Details */}
@@ -551,14 +585,13 @@ export default function StudentsPage() {
               <p className="text-sm text-slate-500 mb-4">Select an admin to assign the callback request</p>
 
               <div className="space-y-3 max-h-64 overflow-y-auto">
-                {admins.map((admin: { id: string; firstName: string; lastName: string; email: string; activeLeads: number }) => (
+                {admins.map((admin: any) => (
                   <label
                     key={admin.id}
-                    className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selectedAdminId === admin.id
-                        ? 'border-indigo-600 bg-indigo-50'
-                        : 'border-slate-200 hover:bg-slate-50'
-                    }`}
+                    className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${selectedAdminId === admin.id
+                      ? 'border-indigo-600 bg-indigo-50'
+                      : 'border-slate-200 hover:bg-slate-50'
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <input
@@ -574,7 +607,9 @@ export default function StudentsPage() {
                         <p className="text-sm text-slate-500">{admin.email}</p>
                       </div>
                     </div>
-                    <span className="text-sm text-slate-500">{admin.activeLeads} active tasks</span>
+                    <span className="text-sm text-slate-500">
+                      {admin.profile?.currentActiveLeads || 0} active tasks
+                    </span>
                   </label>
                 ))}
               </div>

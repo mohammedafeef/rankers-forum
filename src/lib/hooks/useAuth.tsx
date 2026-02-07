@@ -5,7 +5,7 @@ import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
 import { UserRole } from '@/types';
 
-interface User {
+export interface User {
   id: string;
   email: string | null;
   role: UserRole;
@@ -24,7 +24,7 @@ export function getRedirectUrl(user: User): string {
     case 'student':
       return user.hasStudentProfile ? '/student/result' : '/student/info';
     case 'admin':
-      return '/admin/leads';
+      return '/admin/dashboard';
     case 'super_admin':
       return '/super-admin/dashboard';
     default:
@@ -37,7 +37,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<User | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,39 +48,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchUser = async () => {
+  const fetchUser = async (): Promise<User | null> => {
     try {
       const response = await fetch('/api/auth/me');
-      
+
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
         setError(null);
+        return data.user;
       } else {
         setUser(null);
         if (response.status !== 401) {
           setError('Failed to fetch user');
         }
+        return null;
       }
     } catch {
       setUser(null);
       setError('Failed to fetch user');
+      return null;
     }
   };
 
-  const refreshUser = async () => {
-    await fetchUser();
+  const refreshUser = async (): Promise<User | null> => {
+    return await fetchUser();
   };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setFirebaseUser(firebaseUser);
-      
+
       if (firebaseUser) {
         // Get ID token and send to server
         try {
           const idToken = await firebaseUser.getIdToken();
-          
+
           const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -101,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUser(null);
       }
-      
+
       setLoading(false);
     });
 
@@ -114,11 +117,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        firebaseUser, 
-        user, 
-        loading, 
+    <AuthContext.Provider
+      value={{
+        firebaseUser,
+        user,
+        loading,
         error,
         refreshUser,
       }}
@@ -130,18 +133,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  
+
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  
+
   return context;
 }
 
 export function useRequireAuth(allowedRoles?: UserRole[]) {
   const { user, loading } = useAuth();
 
-  const isAuthorized = !loading && user && 
+  const isAuthorized = !loading && user &&
     (!allowedRoles || allowedRoles.includes(user.role));
 
   return {
