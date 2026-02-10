@@ -15,6 +15,8 @@ import { HowItWorks } from '@/components/home/HowItWorks';
 import { Hero } from '@/components/home/Hero';
 import { LoginModal, RegisterModal, ForgotPasswordModal } from '@/components/modals';
 
+import { ComingSoon } from '@/components/home/ComingSoon';
+
 
 export default function LandingPage() {
   const router = useRouter();
@@ -33,67 +35,71 @@ export default function LandingPage() {
 
   // Redirect logged-in users to their appropriate page
   useEffect(() => {
+    // Commented out to prevent routing to any other page
+    /*
     if (!loading && user) {
       router.push(getRedirectUrl(user));
     }
+    */
   }, [loading, user, router]);
 
 
   return (
-    <div className="min-h-screen bg-white">
-      <Navbar
-        user={user}
-        loading={loading}
-        onLoginClick={() => setLoginOpen(true)}
-        onRegisterClick={() => setRegisterOpen(true)}
-      />
+    <>
+      <ComingSoon />
+      {/*
+      <div className="min-h-screen bg-white">
+        <Navbar
+          user={user}
+          loading={loading}
+          onLoginClick={() => setLoginOpen(true)}
+          onRegisterClick={() => setRegisterOpen(true)}
+        />
 
-      {/* Hero Section */}
-      <Hero onCheckColleges={handleCheckColleges} />
+        <Hero onCheckColleges={handleCheckColleges} />
 
-      <HowItWorks />
+        <HowItWorks />
 
-      <Features />
+        <Features />
 
-      <CTA onAction={handleCheckColleges} />
+        <CTA onAction={handleCheckColleges} />
 
-      <FAQ />
+        <FAQ />
 
-      {/* Footer */}
-      <Footer />
+        <Footer />
 
+        <LoginModal
+          open={loginOpen}
+          onOpenChange={setLoginOpen}
+          onRegisterClick={() => {
+            setLoginOpen(false);
+            setRegisterOpen(true);
+          }}
+          onForgotPasswordClick={() => {
+            setLoginOpen(false);
+            setForgotPasswordOpen(true);
+          }}
+        />
 
-      {/* Modals */}
-      <LoginModal
-        open={loginOpen}
-        onOpenChange={setLoginOpen}
-        onRegisterClick={() => {
-          setLoginOpen(false);
-          setRegisterOpen(true);
-        }}
-        onForgotPasswordClick={() => {
-          setLoginOpen(false);
-          setForgotPasswordOpen(true);
-        }}
-      />
+        <RegisterModal
+          open={registerOpen}
+          onOpenChange={setRegisterOpen}
+          onLoginClick={() => {
+            setRegisterOpen(false);
+            setLoginOpen(true);
+          }}
+        />
 
-      <RegisterModal
-        open={registerOpen}
-        onOpenChange={setRegisterOpen}
-        onLoginClick={() => {
-          setRegisterOpen(false);
-          setLoginOpen(true);
-        }}
-      />
-
-      <ForgotPasswordModal
-        open={forgotPasswordOpen}
-        onOpenChange={setForgotPasswordOpen}
-        onBackToLogin={() => {
-          setForgotPasswordOpen(false);
-          setLoginOpen(true);
-        }}
-      />
-    </div>
+        <ForgotPasswordModal
+          open={forgotPasswordOpen}
+          onOpenChange={setForgotPasswordOpen}
+          onBackToLogin={() => {
+            setForgotPasswordOpen(false);
+            setLoginOpen(true);
+          }}
+        />
+      </div>
+      */}
+    </>
   );
 }
