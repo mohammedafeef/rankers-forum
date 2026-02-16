@@ -25,6 +25,17 @@ import { useRequireAuth } from '@/lib/hooks';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { JOB_TYPES } from '@/lib/constants';
 import { TableShimmer } from '@/components/ui/table-shimmer';
+import Image from 'next/image';
+
+interface Lead {
+  id: string;
+  studentName: string;
+  studentPhone: string;
+  studentLocation: string;
+  rankUsed: number;
+  preferredBranch: string;
+  status: string;
+}
 
 interface Admin {
   id: string;
@@ -32,19 +43,25 @@ interface Admin {
   lastName: string;
   email: string;
   phone: string;
-  employeeNumber: string;
-  jobTitle: string;
-  jobType: string;
   isActive: boolean;
-  activeLeads: number;
+  profile: {
+    employeeNumber?: string;
+    jobTitle?: string;
+    jobType?: string;
+    maxActiveLeads?: number;
+    currentActiveLeads?: number;
+  };
 }
 
 export default function AdminManagementPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isAuthorized, loading: authLoading } = useRequireAuth(['super_admin']);
-  
+
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [leadsModalOpen, setLeadsModalOpen] = useState(false);
+  const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null);
   const [newAdmin, setNewAdmin] = useState({
     firstName: '',
     lastName: '',
@@ -65,6 +82,16 @@ export default function AdminManagementPage() {
       return response.json();
     },
     enabled: !!isAuthorized,
+  });
+
+  const { data: assignedLeadsData, isLoading: leadsLoading } = useQuery({
+    queryKey: ['admin-assigned-leads', selectedAdmin?.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/admin/leads?adminId=${selectedAdmin?.id}`);
+      if (!response.ok) throw new Error('Failed to fetch leads');
+      return response.json();
+    },
+    enabled: !!isAuthorized && leadsModalOpen && !!selectedAdmin?.id,
   });
 
   const createMutation = useMutation({
@@ -117,6 +144,16 @@ export default function AdminManagementPage() {
       router.push('/');
     }
   }, [authLoading, isAuthorized, router]);
+
+  const handleViewDetails = (admin: Admin) => {
+    setSelectedAdmin(admin);
+    setDetailsModalOpen(true);
+  };
+
+  const handleViewLeads = (admin: Admin) => {
+    setSelectedAdmin(admin);
+    setLeadsModalOpen(true);
+  };
 
   if (authLoading || !isAuthorized) {
     return (
@@ -172,10 +209,14 @@ export default function AdminManagementPage() {
                     <td className="px-6 py-4 text-sm text-slate-900">
                       {admin.firstName} {admin.lastName}
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{admin.employeeNumber || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">
+                      {admin.profile?.employeeNumber || '-'}
+                    </td>
                     <td className="px-6 py-4 text-sm text-slate-600">{admin.phone}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{admin.email}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{admin.activeLeads}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">
+                      {admin.profile?.currentActiveLeads || 0}
+                    </td>
                     <td className="px-6 py-4">
                       <button
                         onClick={() => toggleActiveMutation.mutate({ adminId: admin.id, isActive: !admin.isActive })}
@@ -190,11 +231,19 @@ export default function AdminManagementPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <button className="text-indigo-600 hover:text-indigo-700">
-                          <Users className="h-5 w-5" />
+                        <button
+                          onClick={() => handleViewDetails(admin)}
+                          className="text-indigo-600 hover:text-indigo-700"
+                          title="View Details"
+                        >
+                          <Image src="/details.svg" alt="Details" width={24} height={24} />
                         </button>
-                        <button className="text-slate-400 hover:text-slate-600">
-                          <Download className="h-5 w-5" />
+                        <button
+                          onClick={() => handleViewLeads(admin)}
+                          className="text-slate-500 hover:text-indigo-600"
+                          title="View Assigned Leads"
+                        >
+                          <Users className="h-5 w-5" />
                         </button>
                       </div>
                     </td>
@@ -337,6 +386,144 @@ export default function AdminManagementPage() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin Details Modal */}
+      <Dialog open={detailsModalOpen} onOpenChange={setDetailsModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Admin Details</DialogTitle>
+          </DialogHeader>
+
+          {selectedAdmin && (
+            <div className="space-y-6">
+              {/* Basic Details */}
+              <div>
+                <h3 className="text-indigo-700 font-semibold mb-4">Basic and Contact Details</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-slate-500">Full Name</p>
+                    <p className="font-medium">{selectedAdmin.firstName} {selectedAdmin.lastName}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Phone Number</p>
+                    <p className="font-medium">+91 {selectedAdmin.phone}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Email Address</p>
+                    <p className="font-medium">{selectedAdmin.email}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Admin ID</p>
+                    <p className="font-medium">{selectedAdmin.id}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Employment Details */}
+              <div>
+                <h3 className="text-indigo-700 font-semibold mb-4">Employment Details</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-slate-500">Employee Number</p>
+                    <p className="font-medium">{selectedAdmin.profile?.employeeNumber || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Job Title</p>
+                    <p className="font-medium">{selectedAdmin.profile?.jobTitle || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Job Type</p>
+                    <p className="font-medium capitalize">{selectedAdmin.profile?.jobType?.replace('_', ' ') || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Account Status</p>
+                    <p className="font-medium">
+                      {selectedAdmin.isActive ? 'Active' : 'Inactive'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* CRM/Lead Details */}
+              <div>
+                <h3 className="text-indigo-700 font-semibold mb-4">Lead Management Stats</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-slate-500">Active Leads</p>
+                    <p className="font-medium">{selectedAdmin.profile?.currentActiveLeads || 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-500">Max Lead Capacity</p>
+                    <p className="font-medium">{selectedAdmin.profile?.maxActiveLeads || 50}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Assigned Leads Modal */}
+      <Dialog open={leadsModalOpen} onOpenChange={setLeadsModalOpen}>
+        <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              Leads Assigned to {selectedAdmin?.firstName} {selectedAdmin?.lastName}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto mt-4">
+            <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
+              <table className="w-full">
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-[#2F129B] text-white text-sm">
+                    <th className="text-left px-6 py-4 font-medium">Student Name</th>
+                    <th className="text-left px-6 py-4 font-medium">Location</th>
+                    <th className="text-left px-6 py-4 font-medium">Phone</th>
+                    <th className="text-left px-6 py-4 font-medium">Rank</th>
+                    <th className="text-left px-6 py-4 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {leadsLoading ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-4">
+                        <div className="flex justify-center p-8">
+                          <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                        </div>
+                      </td>
+                    </tr>
+                  ) : !assignedLeadsData?.leads || assignedLeadsData.leads.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-16 text-center text-slate-500">
+                        No leads assigned to this admin.
+                      </td>
+                    </tr>
+                  ) : (
+                    assignedLeadsData.leads.map((lead: Lead) => (
+                      <tr key={lead.id} className="hover:bg-slate-50">
+                        <td className="px-6 py-4 text-sm text-slate-900">{lead.studentName}</td>
+                        <td className="px-6 py-4 text-sm text-slate-600">{lead.studentLocation}</td>
+                        <td className="px-6 py-4 text-sm text-slate-600">{lead.studentPhone}</td>
+                        <td className="px-6 py-4 text-sm text-slate-600">{lead.rankUsed}</td>
+                        <td className="px-6 py-4 text-sm">
+                          <Badge className={
+                            lead.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
+                              lead.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                'bg-amber-50 text-amber-700 border-amber-200'
+                          }>
+                            {lead.status.replace('_', ' ').charAt(0).toUpperCase() + lead.status.replace('_', ' ').slice(1)}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </AdminLayout>

@@ -6,9 +6,16 @@ import { Loader2, FileText, CheckCircle, Phone, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useRequireAuth } from '@/lib/hooks';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Image from 'next/image';
 import { TableShimmer } from '@/components/ui/table-shimmer';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface DashboardStats {
   totalRegistrations: number;
@@ -21,11 +28,14 @@ interface Lead {
   id: string;
   studentName: string;
   studentPhone: string;
-  studentState: string;
-  rank: number;
-  course: string;
+  studentLocation: string;
+  rankUsed: number;
+  preferredBranch: string;
   status: string;
-  assignedAt: string;
+  createdAt: {
+    _seconds: number;
+    _nanoseconds: number;
+  };
 }
 
 export default function SuperAdminDashboard() {
@@ -58,6 +68,24 @@ export default function SuperAdminDashboard() {
     }
   }, [authLoading, isAuthorized, router]);
 
+  const queryClient = useQueryClient();
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ leadId, status }: { leadId: string, status: string }) => {
+      const response = await fetch(`/api/admin/leads/${leadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!response.ok) throw new Error('Failed to update status');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-leads'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-stats'] });
+    },
+  });
+
   if (authLoading || !isAuthorized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -82,17 +110,38 @@ export default function SuperAdminDashboard() {
     { label: 'Pending Callbacks', value: stats.pendingCallbacks, icon: "/phone.svg", color: 'bg-purple-50 text-purple-600' },
   ];
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Badge className="bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50">Pending</Badge>;
-      case 'in_progress':
-        return <Badge className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-50">In Progress</Badge>;
-      case 'completed':
-        return <Badge className="bg-green-50 text-green-700 border-green-200 hover:bg-green-50">Completed</Badge>;
-      default:
-        return <Badge className="bg-slate-50 text-slate-600 border-slate-200">{status}</Badge>;
-    }
+
+
+  const getStatusBadge = (status: string, leadId: string) => {
+    const statusMap: Record<string, { label: string, color: string }> = {
+      'new': { label: 'Pending', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+      'pending': { label: 'Pending', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+      'in_progress': { label: 'In Progress', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+      'completed': { label: 'Completed', color: 'bg-green-50 text-green-700 border-green-200' },
+    };
+
+    const currentStatus = statusMap[status] || { label: status, color: 'bg-slate-50 text-slate-600 border-slate-200' };
+
+    return (
+      <Select
+        defaultValue={status}
+        onValueChange={(newStatus) => updateStatusMutation.mutate({ leadId, status: newStatus })}
+        disabled={updateStatusMutation.isPending}
+      >
+        <SelectTrigger className={`h-8 w-[130px] border-none shadow-none focus:ring-0 ${currentStatus.color}`}>
+          <SelectValue>
+            <Badge className={`${currentStatus.color} border-none hover:${currentStatus.color}`}>
+              {currentStatus.label}
+            </Badge>
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="new">Pending</SelectItem>
+          <SelectItem value="in_progress">In Progress</SelectItem>
+          <SelectItem value="completed">Completed</SelectItem>
+        </SelectContent>
+      </Select>
+    );
   };
 
   return (
@@ -150,12 +199,18 @@ export default function SuperAdminDashboard() {
                 leads.map((lead) => (
                   <tr key={lead.id} className="hover:bg-slate-50">
                     <td className="px-6 py-4 text-sm text-slate-900">{lead.studentName}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{lead.studentState}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{lead.studentLocation}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{lead.studentPhone}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{lead.rank}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{lead.course}</td>
-                    <td className="px-6 py-4 text-sm text-slate-600">{lead.assignedAt}</td>
-                    <td className="px-6 py-4">{getStatusBadge(lead.status)}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{lead.rankUsed}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">{lead.preferredBranch}</td>
+                    <td className="px-6 py-4 text-sm text-slate-600">
+                      {lead.createdAt ? new Date(lead.createdAt._seconds * 1000).toLocaleDateString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                      }) : 'N/A'}
+                    </td>
+                    <td className="px-6 py-4">{getStatusBadge(lead.status, lead.id)}</td>
                   </tr>
                 ))
               )}

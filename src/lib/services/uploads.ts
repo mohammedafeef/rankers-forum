@@ -6,7 +6,7 @@ import {
   CollegeRankCutoff,
 } from '@/types';
 import { Timestamp } from 'firebase-admin/firestore';
-import { bulkCreateCutoffs, deleteCutoffsByYear, syncLocations } from './colleges';
+import { bulkCreateCutoffs, deleteCutoffsByYear, syncCourses, syncLocations } from './colleges';
 
 const uploadsCollection = adminDb.collection(COLLECTIONS.EXCEL_UPLOAD_LOGS);
 
@@ -119,6 +119,22 @@ function extractLocations(rows: ExcelRow[]): string[] {
 }
 
 /**
+ * Extract unique courses from rows
+ */
+function extractCourses(rows: ExcelRow[]): string[] {
+  const courses = new Set<string>();
+
+  for (const row of rows) {
+    const course = row['Course Name']?.trim();
+    if (course) {
+      courses.add(course);
+    }
+  }
+
+  return Array.from(courses);
+}
+
+/**
  * Create upload log
  */
 export async function createUploadLog(
@@ -211,8 +227,9 @@ export async function processExcelUpload(
     // Step 2: Normalize data in memory (take last occurrence for duplicates)
     const normalizedData = normalizeExcelData(validRows, year);
 
-    // Step 3: Extract unique locations
+    // Step 3: Extract unique locations and courses
     const locations = extractLocations(rows);
+    const courses = extractCourses(rows);
 
     // Step 4: Delete existing cutoffs for this year (replace mode)
     await deleteCutoffsByYear(year);
@@ -231,8 +248,9 @@ export async function processExcelUpload(
 
     const insertedCount = await bulkCreateCutoffs(cutoffsToInsert);
 
-    // Step 6: Sync locations
+    // Step 6: Sync locations and courses
     await syncLocations(locations);
+    await syncCourses(courses);
 
     // Final update
     await updateUploadLog(uploadLog.id, {

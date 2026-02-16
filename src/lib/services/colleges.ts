@@ -10,6 +10,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 
 const cutoffsCollection = adminDb.collection(COLLECTIONS.COLLEGE_RANK_CUTOFFS);
 const locationsCollection = adminDb.collection(COLLECTIONS.LOCATIONS);
+const coursesCollection = adminDb.collection(COLLECTIONS.COURSES);
 
 // ============================================
 // Chance Calculation
@@ -112,45 +113,79 @@ export async function getEligibleColleges(options: {
   courseName: string;
   category: string;
   year: number;
+  quota?: string;
   collegeType?: CollegeType;
-  location?: string;
-}): Promise<CollegeWithChance[]> {
-  let query = cutoffsCollection
+  locations?: string[];
+}): Promise<{ primary: CollegeWithChance[]; others: CollegeWithChance[] }> {
+  let baseQuery = cutoffsCollection
     .where('courseName', '==', options.courseName)
     .where('year', '==', options.year)
-    .where('category', '==', options.category)
+    // .where('category', '==', options.category)
     .where('rank', '>=', options.studentRank)
-    .orderBy('rank');
+    .orderBy('rank')
+    .limit(300);
 
   if (options.collegeType) {
-    query = query.where('collegeType', '==', options.collegeType);
+    baseQuery = baseQuery.where('collegeType', '==', options.collegeType);
   }
 
-  const snapshot = await query.get();
+  let query = baseQuery;
+  if (options.locations && options.locations.length > 0) {
+    query = baseQuery.where('collegeLocation', 'in', options.locations);
+  }
 
-  let results = snapshot.docs.map(doc => {
+  let snapshot = await query.get();
+  let isFallback = false;
+
+  // If we have location constraints and found few results, try without location constraints
+  if (snapshot.size < 30 && options.locations && options.locations.length > 0) {
+    snapshot = await baseQuery.get();
+    isFallback = true;
+  }
+
+  const primary: CollegeWithChance[] = [];
+  const others: CollegeWithChance[] = [];
+  const locationSet = options.locations ? new Set(options.locations) : null;
+
+  snapshot.docs.forEach(doc => {
     const data = doc.data() as Omit<CollegeRankCutoff, 'id'>;
     const chance = calculateChance(options.studentRank, data.rank);
 
-    return {
+    const college = {
       id: doc.id,
       ...data,
       chance,
       chanceLabel: getChanceLabel(chance),
     } as CollegeWithChance;
+
+    // Distribute to primary or others list
+    if (options.locations && options.locations.length > 0) {
+      if (isFallback) {
+        if (locationSet?.has(data.collegeLocation)) {
+          primary.push(college);
+        } else {
+          others.push(college);
+        }
+      } else {
+        primary.push(college);
+      }
+    } else {
+      primary.push(college);
+    }
   });
 
-  // Filter by location if specified (done in memory due to Firestore limitations)
-  if (options.location) {
-    results = results.filter(r => r.collegeLocation === options.location);
-  }
-
-  return results;
+  return { primary, others };
 }
 
 /**
  * Get previous year cutoffs for a student's rank
  */
+
+interface PreviousYearCutoffs {
+  colleges: CollegeWithChance[];
+  otherColleges: CollegeWithChance[];
+  totalCount: number;
+}
 export async function getPreviousYearCutoffs(options: {
   studentRank: number;
   courseName: string;
@@ -158,23 +193,23 @@ export async function getPreviousYearCutoffs(options: {
   currentYear: number;
   yearsBack?: number;
   collegeType?: CollegeType;
-  location?: string;
-}): Promise<Record<number, CollegeWithChance[]>> {
+  locations?: string[];
+}): Promise<Record<number, PreviousYearCutoffs>> {
   const yearsBack = options.yearsBack || 2;
-  const results: Record<number, CollegeWithChance[]> = {};
+  const results: Record<number, PreviousYearCutoffs> = {};
 
   for (let i = 1; i <= yearsBack; i++) {
     const year = options.currentYear - i;
-    const colleges = await getEligibleColleges({
+    const { primary, others } = await getEligibleColleges({
       studentRank: options.studentRank,
       courseName: options.courseName,
       category: options.category,
       year,
       collegeType: options.collegeType,
-      location: options.location,
+      locations: options.locations,
     });
 
-    results[year] = colleges;
+    results[year] = {colleges: primary, otherColleges: others, totalCount: primary.length + others.length};
   }
 
   return results;
@@ -263,11 +298,73 @@ export async function syncLocations(locationNames: string[]): Promise<number> {
 export async function getLocations(): Promise<Location[]> {
   const snapshot = await locationsCollection
     .where('isActive', '==', true)
-    .orderBy('name')
     .get();
 
   return snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data(),
   } as Location));
+}
+
+// ============================================
+// Course Functions
+// ============================================
+
+export interface Course {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+/**
+ * Sync courses - check existing and add new ones from the upload
+ */
+export async function syncCourses(courseNames: string[]): Promise<number> {
+  const BATCH_SIZE = 500;
+
+  // Get unique, non-empty courses
+  const uniqueCourses = [...new Set(courseNames.filter(l => l && l.trim()))];
+
+  // Clear existing courses
+  const existingSnapshot = await coursesCollection.get();
+  for (let i = 0; i < existingSnapshot.docs.length; i += BATCH_SIZE) {
+    const batch = adminDb.batch();
+    const chunk = existingSnapshot.docs.slice(i, i + BATCH_SIZE);
+    for (const doc of chunk) {
+      batch.delete(doc.ref);
+    }
+    await batch.commit();
+  }
+
+  // Add new courses
+  for (let i = 0; i < uniqueCourses.length; i += BATCH_SIZE) {
+    const batch = adminDb.batch();
+    const chunk = uniqueCourses.slice(i, i + BATCH_SIZE);
+
+    for (const name of chunk) {
+      const docRef = coursesCollection.doc();
+      batch.set(docRef, {
+        name: name.trim(),
+        isActive: true,
+      });
+    }
+
+    await batch.commit();
+  }
+
+  return uniqueCourses.length;
+}
+
+/**
+ * Get all active courses
+ */
+export async function getCourses(): Promise<Course[]> {
+  const snapshot = await coursesCollection
+    .where('isActive', '==', true)
+    .get();
+
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  } as Course));
 }

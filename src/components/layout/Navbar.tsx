@@ -4,9 +4,10 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Phone, ArrowRight } from 'lucide-react';
+import { Phone, ArrowRight, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CallbackModal } from '@/components/modals';
+import { useAuthActions } from '@/lib/hooks/useAuthActions';
 
 interface NavbarProps {
     user: any;
@@ -17,6 +18,7 @@ interface NavbarProps {
 
 export function Navbar({ user, loading, onLoginClick, onRegisterClick }: NavbarProps) {
     const router = useRouter();
+    const { logout } = useAuthActions();
     const [callbackModalOpen, setCallbackModalOpen] = useState(false);
 
     const handlePhoneClick = () => {
@@ -65,10 +67,10 @@ export function Navbar({ user, loading, onLoginClick, onRegisterClick }: NavbarP
 
                             {loading ? null : user ? (
                                 <Button
-                                    onClick={() => router.push('/student/info')}
+                                    onClick={() => logout()}
                                     className="rounded-full bg-linear-to-br from-[#2F129B] to-[#3B82F6] text-white px-8 py-6 text-lg font-medium hover:opacity-90 shadow-lg transition-all active:scale-95 flex items-center gap-2 border-0"
                                 >
-                                    Dashboard <ArrowRight className="w-5 h-5" />
+                                    Logout <LogOut className="w-5 h-5" />
                                 </Button>
                             ) : (
                                 <Button

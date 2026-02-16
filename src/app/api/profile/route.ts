@@ -8,7 +8,7 @@ import { getAdminByUserId, updateAdminProfile } from '@/lib/services/admins';
  */
 async function verifySession(request: NextRequest): Promise<string | null> {
   const sessionCookie = request.cookies.get('session')?.value;
-  
+
   if (!sessionCookie) {
     return null;
   }
@@ -27,13 +27,13 @@ async function verifySession(request: NextRequest): Promise<string | null> {
 export async function GET(request: NextRequest) {
   try {
     const uid = await verifySession(request);
-    
+
     if (!uid) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await getUserById(uid);
-    
+
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
         jobType: adminProfile.jobType,
         noticePeriod: adminProfile.noticePeriod,
         dateOfBirth: adminProfile.dateOfBirth,
+        gender: adminProfile.gender,
         maritalStatus: adminProfile.maritalStatus,
         bloodGroup: adminProfile.bloodGroup,
         nationality: adminProfile.nationality,
@@ -84,13 +85,13 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const uid = await verifySession(request);
-    
+
     if (!uid) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await getUserById(uid);
-    
+
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -113,6 +114,7 @@ export async function PATCH(request: NextRequest) {
     if ((user.role === 'admin' || user.role === 'super_admin') && body.adminProfile) {
       const adminUpdates: Record<string, unknown> = {};
       if (body.adminProfile.maritalStatus) adminUpdates.maritalStatus = body.adminProfile.maritalStatus;
+      if (body.adminProfile.gender) adminUpdates.gender = body.adminProfile.gender;
       if (body.adminProfile.bloodGroup) adminUpdates.bloodGroup = body.adminProfile.bloodGroup;
       if (body.adminProfile.nationality) adminUpdates.nationality = body.adminProfile.nationality;
       if (body.adminProfile.dateOfBirth) adminUpdates.dateOfBirth = new Date(body.adminProfile.dateOfBirth);

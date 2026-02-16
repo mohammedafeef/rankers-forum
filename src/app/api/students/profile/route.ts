@@ -9,7 +9,7 @@ import { CreateStudentInput } from '@/types';
  */
 async function verifySession(request: NextRequest): Promise<string | null> {
   const sessionCookie = request.cookies.get('session')?.value;
-  
+
   if (!sessionCookie) {
     return null;
   }
@@ -28,13 +28,13 @@ async function verifySession(request: NextRequest): Promise<string | null> {
 export async function GET(request: NextRequest) {
   try {
     const uid = await verifySession(request);
-    
+
     if (!uid) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await getUserById(uid);
-    
+
     if (!user || user.role !== 'student') {
       return NextResponse.json({ error: 'Not a student' }, { status: 403 });
     }
@@ -67,13 +67,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const uid = await verifySession(request);
-    
+
     if (!uid) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await getUserById(uid);
-    
+
     if (!user || user.role !== 'student') {
       return NextResponse.json({ error: 'Not a student' }, { status: 403 });
     }
@@ -88,14 +88,14 @@ export async function POST(request: NextRequest) {
       domicileState,
       counsellingType,
       preferredBranch,
-      statePreference1,
-      statePreference2,
-      statePreference3,
+      locationPreference1,
+      locationPreference2,
+      locationPreference3,
     } = body;
 
     // Validate required fields
-    if (!rank || !yearOfPassing || !category || !gender || !institution || 
-        !domicileState || !counsellingType || !preferredBranch) {
+    if (!rank || !yearOfPassing || !category || !gender || !institution ||
+      !domicileState || !counsellingType || !preferredBranch) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -113,9 +113,9 @@ export async function POST(request: NextRequest) {
         domicileState,
         counsellingType,
         preferredBranch,
-        statePreference1: statePreference1 || '',
-        statePreference2: statePreference2 || '',
-        statePreference3: statePreference3 || '',
+        locationPreference1: locationPreference1 || '',
+        locationPreference2: locationPreference2 || '',
+        locationPreference3: locationPreference3 || '',
       });
 
       return NextResponse.json({ success: true, message: 'Profile updated' });
@@ -130,17 +130,17 @@ export async function POST(request: NextRequest) {
       domicileState,
       counsellingType,
       preferredBranch,
-      statePreference1: statePreference1 || '',
-      statePreference2: statePreference2 || '',
-      statePreference3: statePreference3 || '',
+      locationPreference1: locationPreference1 || '',
+      locationPreference2: locationPreference2 || '',
+      locationPreference3: locationPreference3 || '',
     };
 
     const student = await createStudent(uid, studentInput);
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       student,
-      message: 'Profile created' 
+      message: 'Profile created'
     });
   } catch (error) {
     console.error('Create student profile error:', error);

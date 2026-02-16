@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2, ArrowRight } from 'lucide-react';
@@ -38,6 +39,7 @@ export function LoginModal({
   onForgotPasswordClick,
   onSuccess,
 }: LoginModalProps) {
+  const router = useRouter();
   const { login, loginWithGoogle, loading, error, clearError } = useAuthActions();
   const [googleLoading, setGoogleLoading] = useState(false);
 
@@ -53,10 +55,16 @@ export function LoginModal({
   const onSubmit = async (data: LoginFormData) => {
     try {
       clearError();
-      await login(data.email, data.password);
+      const user = await login(data.email, data.password);
       reset();
-      onOpenChange(false);
-      onSuccess?.();
+
+      if (user?.role === 'admin') {
+        onOpenChange(false);
+        router.push('/admin/dashboard');
+      } else {
+        onOpenChange(false);
+        onSuccess?.();
+      }
     } catch {
       // Error is handled by useAuthActions
     }
@@ -66,9 +74,15 @@ export function LoginModal({
     try {
       setGoogleLoading(true);
       clearError();
-      await loginWithGoogle();
-      onOpenChange(false);
-      onSuccess?.();
+      const user = await loginWithGoogle();
+
+      if (user?.role === 'admin') {
+        onOpenChange(false);
+        router.push('/admin/dashboard');
+      } else {
+        onOpenChange(false);
+        onSuccess?.();
+      }
     } catch {
       // Error is handled by useAuthActions
     } finally {
@@ -127,9 +141,9 @@ export function LoginModal({
             </div>
           </div>
 
-          <Button 
-            type="submit" 
-            className="w-full h-12 rounded-full" 
+          <Button
+            type="submit"
+            className="w-full h-12 rounded-full"
             size="lg"
             disabled={loading}
           >

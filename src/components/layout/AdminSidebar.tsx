@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  GraduationCap, 
-  LayoutDashboard, 
-  Users, 
-  Building2, 
+import {
+  GraduationCap,
+  LayoutDashboard,
+  Users,
+  Building2,
   UserCog,
   UserCircle,
   LogOut,
@@ -16,12 +16,17 @@ import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
 import Image from 'next/image';
 
-const sidebarLinks = [
+const superAdminLinks = [
   { href: '/super-admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/super-admin/students', label: 'Students', icon: Users },
   { href: '/super-admin/colleges', label: 'College', icon: Building2 },
   { href: '/super-admin/admins', label: 'Admin', icon: UserCog },
   { href: '/super-admin/profile', label: 'Profile', icon: UserCircle },
+];
+
+const adminLinks = [
+  { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/leads', label: 'Leads', icon: Users },
 ];
 
 interface AdminSidebarProps {
@@ -32,23 +37,25 @@ export function AdminSidebar({ onLogoutClick }: AdminSidebarProps) {
   const pathname = usePathname();
   const { user } = useAuth();
 
+  const links = user?.role === 'admin' ? adminLinks : superAdminLinks;
+
   return (
     <aside className="w-64 bg-white text-white flex flex-col
     shadow-md border-r border-slate-100 fixed inset-y-0 left-0 z-50">
       {/* Logo */}
-   <div className="p-6 ">
-   <Image
-   src="/logoBlue.svg"
-   alt="Rankers Forum Logo"
-   width={160}
-   height={45}
-   className="object-contain w-[100px] h-[32px] md:w-[160px] md:h-[45px]"
-   priority
-   />
-   </div>
+      <div className="p-6 ">
+        <Image
+          src="/logoBlue.svg"
+          alt="Rankers Forum Logo"
+          width={160}
+          height={45}
+          className="object-contain w-[100px] h-[32px] md:w-[160px] md:h-[45px]"
+          priority
+        />
+      </div>
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2">
-        {sidebarLinks.map((link) => {
+        {links.map((link) => {
           const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
           return (
             <Link
@@ -57,7 +64,7 @@ export function AdminSidebar({ onLogoutClick }: AdminSidebarProps) {
               className={cn(
                 'flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-gradient-to-r from-[#2F129B] to-[#3B82F6] text-white'
+                  ? 'bg-linear-to-r from-[#2F129B] to-[#3B82F6] text-white'
                   : 'text-[#4B5563] hover:text-gray-800 hover:bg-slate-200'
               )}
             >
@@ -94,9 +101,9 @@ export function AdminSidebar({ onLogoutClick }: AdminSidebarProps) {
               </p>
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            className="w-full border-gray-300 text-gray-700 hover:bg-gray-50" 
+          <Button
+            variant="outline"
+            className="w-full border-gray-300 text-gray-700 hover:bg-gray-50"
             size="sm"
             onClick={onLogoutClick}
           >

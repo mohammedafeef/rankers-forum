@@ -21,7 +21,6 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   NEET_CATEGORIES,
   QUOTA_TYPES,
-  MEDICAL_BRANCHES,
   INDIAN_STATES,
   GENDERS,
 } from '@/lib/constants';
@@ -70,6 +69,27 @@ export default function StudentInfoPage() {
     enabled: !!isAuthorized,
   });
 
+  // Fetch available locations from API
+  const { data: locationsData, isLoading: locationsLoading } = useQuery<{ locations: string[] }>({
+    queryKey: ['locations'],
+    queryFn: async () => {
+      const response = await fetch('/api/colleges/locations');
+      if (!response.ok) throw new Error('Failed to fetch locations');
+      return response.json();
+    },
+  });
+  const locations = locationsData?.locations || [];
+
+  // Fetch available courses from API
+  const { data: coursesData, isLoading: coursesLoading } = useQuery<{ courses: string[] }>({
+    queryKey: ['courses'],
+    queryFn: async () => {
+      const response = await fetch('/api/colleges/courses');
+      if (!response.ok) throw new Error('Failed to fetch courses');
+      return response.json();
+    },
+  });
+  const courses = coursesData?.courses || [];
   const submitMutation = useMutation({
     mutationFn: async (data: any) => {
       // First save profile
@@ -85,9 +105,9 @@ export default function StudentInfoPage() {
           domicileState: data.domicileState,
           counsellingType: data.counsellingType,
           preferredBranch: data.preferredBranch,
-          statePreference1: data.preference1,
-          statePreference2: data.preference2,
-          statePreference3: data.preference3,
+          locationPreference1: data.preference1,
+          locationPreference2: data.preference2,
+          locationPreference3: data.preference3,
         }),
       });
 
@@ -98,12 +118,7 @@ export default function StudentInfoPage() {
 
       // Then get eligible colleges
       const params = new URLSearchParams({
-        rank: data.rank,
-        category: data.category,
-        quota: data.counsellingType,
-        branch: data.preferredBranch,
         domicileState: data.domicileState,
-        year: data.year,
       });
 
       const collegesResponse = await fetch(`/api/colleges/eligible?${params}`);
@@ -409,11 +424,17 @@ export default function StudentInfoPage() {
                     <SelectValue placeholder="Select Your Preferred Branch" />
                   </SelectTrigger>
                   <SelectContent>
-                    {MEDICAL_BRANCHES.map((branch) => (
-                      <SelectItem key={branch.value} value={branch.value}>
-                        {branch.label}
-                      </SelectItem>
-                    ))}
+                    {coursesLoading ? (
+                      <SelectItem value="loading" disabled>Loading...</SelectItem>
+                    ) : courses.length > 0 ? (
+                      courses.map((course) => (
+                        <SelectItem key={course} value={course}>
+                          {course}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-courses" disabled>No courses available</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
                 {formik.touched.preferredBranch && formik.errors.preferredBranch && (
@@ -443,11 +464,17 @@ export default function StudentInfoPage() {
                       <SelectValue placeholder="1st Preference *" />
                     </SelectTrigger>
                     <SelectContent>
-                      {INDIAN_STATES.map((state) => (
-                        <SelectItem key={state} value={state}>
-                          {state}
-                        </SelectItem>
-                      ))}
+                      {locationsLoading ? (
+                        <SelectItem value="loading" disabled>Loading...</SelectItem>
+                      ) : locations.length > 0 ? (
+                        locations.map((location) => (
+                          <SelectItem key={location} value={location}>
+                            {location}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-locations" disabled>No locations available</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   {formik.touched.preference1 && formik.errors.preference1 && (
@@ -468,11 +495,17 @@ export default function StudentInfoPage() {
                       <SelectValue placeholder="2nd Preference" />
                     </SelectTrigger>
                     <SelectContent>
-                      {INDIAN_STATES.map((state) => (
-                        <SelectItem key={state} value={state}>
-                          {state}
-                        </SelectItem>
-                      ))}
+                      {locationsLoading ? (
+                        <SelectItem value="loading" disabled>Loading...</SelectItem>
+                      ) : locations.length > 0 ? (
+                        locations.map((location) => (
+                          <SelectItem key={location} value={location}>
+                            {location}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-locations" disabled>No locations available</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -487,11 +520,17 @@ export default function StudentInfoPage() {
                       <SelectValue placeholder="3rd Preference" />
                     </SelectTrigger>
                     <SelectContent>
-                      {INDIAN_STATES.map((state) => (
-                        <SelectItem key={state} value={state}>
-                          {state}
-                        </SelectItem>
-                      ))}
+                      {locationsLoading ? (
+                        <SelectItem value="loading" disabled>Loading...</SelectItem>
+                      ) : locations.length > 0 ? (
+                        locations.map((location) => (
+                          <SelectItem key={location} value={location}>
+                            {location}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-locations" disabled>No locations available</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>

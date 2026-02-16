@@ -12,7 +12,7 @@ import { CURRENT_YEAR } from '@/lib/constants';
  */
 async function verifySession(request: NextRequest): Promise<string | null> {
   const sessionCookie = request.cookies.get('session')?.value;
-  
+
   if (!sessionCookie) {
     return null;
   }
@@ -32,13 +32,13 @@ async function verifySession(request: NextRequest): Promise<string | null> {
 export async function GET(request: NextRequest) {
   try {
     const uid = await verifySession(request);
-    
+
     if (!uid) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await getUserById(uid);
-    
+
     if (!user || user.role !== 'student') {
       return NextResponse.json({ error: 'Not a student' }, { status: 403 });
     }
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 
     // Check if student can perform lookup
     const canLookup = await canPerformLookup(uid);
-    
+
     if (!canLookup) {
       return NextResponse.json(
         { error: 'Maximum college checks reached (2/2)' },
@@ -68,19 +68,20 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state');
 
     // Get eligible colleges
-    const colleges = await getEligibleColleges({
+    const { primary, others } = await getEligibleColleges({
       studentRank: student.rank,
-      branch: student.preferredBranch,
+      courseName: student.preferredBranch,
       category: student.category,
+      year: CURRENT_YEAR - 1,
       quota: student.counsellingType === 'all_india' ? 'All India' : 'State',
-      year: CURRENT_YEAR,
-      collegeType: collegeType || undefined,
-      state: state || undefined,
+      locations: [student.locationPreference1, student.locationPreference2, student.locationPreference3]
+      // collegeType: collegeType || undefined,
+      // state: state || undefined,
     });
 
     // Only increment usage and create lead on first call (not on filtering)
     const isFirstLookup = searchParams.get('track') === 'true';
-    
+
     if (isFirstLookup) {
       // Increment checks used
       await incrementChecksUsed(uid);
@@ -99,8 +100,9 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      colleges,
-      totalCount: colleges.length,
+      colleges: primary,
+      otherColleges: others,
+      totalCount: primary.length + others.length,
       currentYear: CURRENT_YEAR,
     });
   } catch (error) {

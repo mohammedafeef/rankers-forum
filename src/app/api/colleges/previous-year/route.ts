@@ -1,394 +1,80 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { adminAuth } from '@/lib/firebase/admin';
+import { getStudentByUserId } from '@/lib/services/students';
+import { getUserById } from '@/lib/services/users';
+import { getPreviousYearCutoffs } from '@/lib/services/colleges';
+import { CollegeType } from '@/types';
+import { CURRENT_YEAR } from '@/lib/constants';
 
-// Dummy data for previous year predictions
-const dummyColleges = [
-  // 2024 - Government Colleges
-  {
-    id: '1',
-    collegeName: 'Mysore Medical College',
-    collegeLocation: 'Mysore, Karnataka',
-    collegeType: 'government',
-    branch: 'mbbs',
-    quota: 'all_india',
-    category: 'general',
-    openingRank: 10000,
-    closingRank: 12000,
-    year: 2024,
-    chance: 'high' as const,
-  },
-  {
-    id: '2',
-    collegeName: 'Mysore Medical College',
-    collegeLocation: 'Mysore, Karnataka',
-    collegeType: 'government',
-    branch: 'mbbs',
-    quota: 'all_india',
-    category: 'obc',
-    openingRank: 11000,
-    closingRank: 12000,
-    year: 2024,
-    chance: 'high' as const,
-  },
-  {
-    id: '3',
-    collegeName: 'Mysore Medical College',
-    collegeLocation: 'Mysore, Karnataka',
-    collegeType: 'government',
-    branch: 'mbbs',
-    quota: 'state',
-    category: 'general',
-    openingRank: 11500,
-    closingRank: 12000,
-    year: 2024,
-    chance: 'moderate' as const,
-  },
-  {
-    id: '4',
-    collegeName: 'Mysore Medical College',
-    collegeLocation: 'Mysore, Karnataka',
-    collegeType: 'government',
-    branch: 'mbbs',
-    quota: 'all_india',
-    category: 'sc',
-    openingRank: 11800,
-    closingRank: 12000,
-    year: 2024,
-    chance: 'low' as const,
-  },
-  {
-    id: '5',
-    collegeName: 'Gandhi Medical College',
-    collegeLocation: 'Bhopal, Madhya Pradesh',
-    collegeType: 'government',
-    branch: 'mbbs',
-    quota: 'all_india',
-    category: 'general',
-    openingRank: 9500,
-    closingRank: 11500,
-    year: 2024,
-    chance: 'high' as const,
-  },
-  {
-    id: '6',
-    collegeName: 'Maulana Azad Medical College',
-    collegeLocation: 'New Delhi, Delhi',
-    collegeType: 'government',
-    branch: 'mbbs',
-    quota: 'all_india',
-    category: 'general',
-    openingRank: 500,
-    closingRank: 800,
-    year: 2024,
-    chance: 'low' as const,
-  },
-  {
-    id: '7',
-    collegeName: 'Armed Forces Medical College',
-    collegeLocation: 'Pune, Maharashtra',
-    collegeType: 'government',
-    branch: 'mbbs',
-    quota: 'all_india',
-    category: 'general',
-    openingRank: 100,
-    closingRank: 300,
-    year: 2024,
-    chance: 'low' as const,
-  },
+/**
+ * Helper to verify session and get user ID
+ */
+async function verifySession(request: NextRequest): Promise<string | null> {
+  const sessionCookie = request.cookies.get('session')?.value;
+  
+  if (!sessionCookie) {
+    return null;
+  }
 
-  // 2023 - Government Colleges
-  {
-    id: '8',
-    collegeName: 'Bengaluru Medical College',
-    collegeLocation: 'Bengaluru, Karnataka',
-    collegeType: 'government',
-    branch: 'mbbs',
-    quota: 'all_india',
-    category: 'general',
-    openingRank: 10500,
-    closingRank: 12000,
-    year: 2023,
-    chance: 'high' as const,
-  },
-  {
-    id: '9',
-    collegeName: 'Bengaluru Medical College',
-    collegeLocation: 'Bengaluru, Karnataka',
-    collegeType: 'government',
-    branch: 'mbbs',
-    quota: 'state',
-    category: 'general',
-    openingRank: 11000,
-    closingRank: 12000,
-    year: 2023,
-    chance: 'high' as const,
-  },
-  {
-    id: '10',
-    collegeName: 'Grant Medical College',
-    collegeLocation: 'Mumbai, Maharashtra',
-    collegeType: 'government',
-    branch: 'mbbs',
-    quota: 'all_india',
-    category: 'general',
-    openingRank: 1000,
-    closingRank: 1500,
-    year: 2023,
-    chance: 'low' as const,
-  },
-  {
-    id: '11',
-    collegeName: 'King George Medical University',
-    collegeLocation: 'Lucknow, Uttar Pradesh',
-    collegeType: 'government',
-    branch: 'mbbs',
-    quota: 'all_india',
-    category: 'general',
-    openingRank: 2000,
-    closingRank: 2500,
-    year: 2023,
-    chance: 'low' as const,
-  },
+  try {
+    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
+    return decoded.uid;
+  } catch {
+    return null;
+  }
+}
 
-  // 2022 - Government Colleges
-  {
-    id: '12',
-    collegeName: 'Kasturba Medical College',
-    collegeLocation: 'Manipal, Karnataka',
-    collegeType: 'government',
-    branch: 'mbbs',
-    quota: 'all_india',
-    category: 'general',
-    openingRank: 10000,
-    closingRank: 11800,
-    year: 2022,
-    chance: 'high' as const,
-  },
-  {
-    id: '13',
-    collegeName: 'Madras Medical College',
-    collegeLocation: 'Chennai, Tamil Nadu',
-    collegeType: 'government',
-    branch: 'mbbs',
-    quota: 'all_india',
-    category: 'general',
-    openingRank: 1500,
-    closingRank: 2000,
-    year: 2022,
-    chance: 'low' as const,
-  },
+/**
+ * GET /api/colleges/previous-year - Get previous year cutoffs
+ * Query params: type (optional), state (optional)
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const uid = await verifySession(request);
+    
+    if (!uid) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-  // 2024 - Private Colleges
-  {
-    id: '14',
-    collegeName: 'Manipal Academy of Higher Education',
-    collegeLocation: 'Manipal, Karnataka',
-    collegeType: 'private',
-    branch: 'mbbs',
-    quota: 'management',
-    category: 'general',
-    openingRank: 15000,
-    closingRank: 20000,
-    year: 2024,
-    chance: 'high' as const,
-  },
-  {
-    id: '15',
-    collegeName: 'JSS Medical College',
-    collegeLocation: 'Mysore, Karnataka',
-    collegeType: 'private',
-    branch: 'mbbs',
-    quota: 'management',
-    category: 'general',
-    openingRank: 18000,
-    closingRank: 25000,
-    year: 2024,
-    chance: 'high' as const,
-  },
-  {
-    id: '16',
-    collegeName: 'Kasturba Medical College',
-    collegeLocation: 'Mangalore, Karnataka',
-    collegeType: 'private',
-    branch: 'mbbs',
-    quota: 'management',
-    category: 'general',
-    openingRank: 16000,
-    closingRank: 22000,
-    year: 2024,
-    chance: 'high' as const,
-  },
-  {
-    id: '17',
-    collegeName: 'SRM Medical College',
-    collegeLocation: 'Chennai, Tamil Nadu',
-    collegeType: 'private',
-    branch: 'mbbs',
-    quota: 'management',
-    category: 'general',
-    openingRank: 20000,
-    closingRank: 30000,
-    year: 2024,
-    chance: 'moderate' as const,
-  },
+    const user = await getUserById(uid);
+    
+    if (!user || user.role !== 'student') {
+      return NextResponse.json({ error: 'Not a student' }, { status: 403 });
+    }
 
-  // 2023 - Private Colleges
-  {
-    id: '18',
-    collegeName: 'Amrita Institute of Medical Sciences',
-    collegeLocation: 'Kochi, Kerala',
-    collegeType: 'private',
-    branch: 'mbbs',
-    quota: 'management',
-    category: 'general',
-    openingRank: 17000,
-    closingRank: 23000,
-    year: 2023,
-    chance: 'high' as const,
-  },
-  {
-    id: '19',
-    collegeName: 'Christian Medical College',
-    collegeLocation: 'Vellore, Tamil Nadu',
-    collegeType: 'private',
-    branch: 'mbbs',
-    quota: 'management',
-    category: 'general',
-    openingRank: 5000,
-    closingRank: 8000,
-    year: 2023,
-    chance: 'low' as const,
-  },
+    const student = await getStudentByUserId(uid);
 
-  // 2024 - Deemed Colleges
-  {
-    id: '20',
-    collegeName: 'Jawaharlal Nehru Medical College',
-    collegeLocation: 'Belgaum, Karnataka',
-    collegeType: 'deemed',
-    branch: 'mbbs',
-    quota: 'all_india',
-    category: 'general',
-    openingRank: 12000,
-    closingRank: 18000,
-    year: 2024,
-    chance: 'high' as const,
-  },
-  {
-    id: '21',
-    collegeName: 'Hamdard Institute of Medical Sciences',
-    collegeLocation: 'New Delhi, Delhi',
-    collegeType: 'deemed',
-    branch: 'mbbs',
-    quota: 'all_india',
-    category: 'general',
-    openingRank: 15000,
-    closingRank: 20000,
-    year: 2024,
-    chance: 'high' as const,
-  },
-  {
-    id: '22',
-    collegeName: 'Bharati Vidyapeeth Medical College',
-    collegeLocation: 'Pune, Maharashtra',
-    collegeType: 'deemed',
-    branch: 'mbbs',
-    quota: 'all_india',
-    category: 'general',
-    openingRank: 14000,
-    closingRank: 19000,
-    year: 2024,
-    chance: 'high' as const,
-  },
-  {
-    id: '23',
-    collegeName: 'Sri Ramachandra Medical College',
-    collegeLocation: 'Chennai, Tamil Nadu',
-    collegeType: 'deemed',
-    branch: 'mbbs',
-    quota: 'all_india',
-    category: 'general',
-    openingRank: 16000,
-    closingRank: 21000,
-    year: 2024,
-    chance: 'moderate' as const,
-  },
+    if (!student || !student.isProfileComplete) {
+      return NextResponse.json(
+        { error: 'Complete your profile first' },
+        { status: 400 }
+      );
+    }
 
-  // 2023 - Deemed Colleges
-  {
-    id: '24',
-    collegeName: 'Kasturba Medical College',
-    collegeLocation: 'Manipal, Karnataka',
-    collegeType: 'deemed',
-    branch: 'mbbs',
-    quota: 'all_india',
-    category: 'general',
-    openingRank: 13000,
-    closingRank: 17000,
-    year: 2023,
-    chance: 'high' as const,
-  },
-  {
-    id: '25',
-    collegeName: 'Datta Meghe Medical College',
-    collegeLocation: 'Nagpur, Maharashtra',
-    collegeType: 'deemed',
-    branch: 'mbbs',
-    quota: 'all_india',
-    category: 'general',
-    openingRank: 18000,
-    closingRank: 24000,
-    year: 2023,
-    chance: 'moderate' as const,
-  },
+    // Get query parameters
+    const searchParams = request.nextUrl.searchParams;
+    const collegeType = searchParams.get('type') as CollegeType | null;
+    const state = searchParams.get('state');
 
-  // Additional colleges for different states
-  {
-    id: '26',
-    collegeName: 'Government Medical College',
-    collegeLocation: 'Thiruvananthapuram, Kerala',
-    collegeType: 'government',
-    branch: 'mbbs',
-    quota: 'state',
-    category: 'general',
-    openingRank: 8000,
-    closingRank: 10000,
-    year: 2024,
-    chance: 'moderate' as const,
-  },
-  {
-    id: '27',
-    collegeName: 'SMS Medical College',
-    collegeLocation: 'Jaipur, Rajasthan',
-    collegeType: 'government',
-    branch: 'mbbs',
-    quota: 'state',
-    category: 'general',
-    openingRank: 7000,
-    closingRank: 9000,
-    year: 2024,
-    chance: 'moderate' as const,
-  },
-  {
-    id: '28',
-    collegeName: 'Government Medical College',
-    collegeLocation: 'Surat, Gujarat',
-    collegeType: 'government',
-    branch: 'mbbs',
-    quota: 'state',
-    category: 'general',
-    openingRank: 9000,
-    closingRank: 11000,
-    year: 2023,
-    chance: 'moderate' as const,
-  },
-];
+    // Get previous year cutoffs (last 2 years)
+    const cutoffsByYear = await getPreviousYearCutoffs({
+      studentRank: student.rank,
+      courseName: student.preferredBranch,
+      category: student.category,
+      // quota: student.counsellingType === 'all_india' ? 'All India' : 'State',
+      currentYear: CURRENT_YEAR - 1,
+      yearsBack: 2,
+      locations: [student.locationPreference1, student.locationPreference2, student.locationPreference3]
+      // collegeType: collegeType || undefined,
+      // state: state || undefined,
+    });
 
-export async function GET() {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  return NextResponse.json({
-    success: true,
-    colleges: dummyColleges,
-  });
+    return NextResponse.json({
+      cutoffsByYear,
+      studentRank: student.rank,
+    });
+  } catch (error) {
+    console.error('Get previous year cutoffs error:', error);
+    return NextResponse.json({ error: 'Failed to get cutoffs' }, { status: 500 });
+  }
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Phone, Eye, MessageSquare, Search } from 'lucide-react';
-import { AdminSidebar } from '@/components/layout';
+import { AdminLayout } from '@/components/layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,9 +51,9 @@ interface LeadWithStudent extends Lead {
     gender: string;
     counsellingType: string;
     preferredBranch: string;
-    statePreference1: string;
-    statePreference2: string;
-    statePreference3: string;
+    locationPreference1: string;
+    locationPreference2: string;
+    locationPreference3: string;
   };
 }
 
@@ -62,7 +62,7 @@ export default function AdminLeadsPage() {
   const queryClient = useQueryClient();
   const { loading: authLoading } = useAuth();
   const { isAuthorized } = useRequireAuth(['admin']);
-  
+
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLead, setSelectedLead] = useState<LeadWithStudent | null>(null);
@@ -163,10 +163,9 @@ export default function AdminLeadsPage() {
   );
 
   return (
-    <AdminSidebar>
+    <AdminLayout title="Assigned Leads">
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Assigned Leads</h1>
           <p className="text-slate-600">Manage your assigned callback requests</p>
         </div>
 
@@ -231,8 +230,8 @@ export default function AdminLeadsPage() {
                         <td className="p-4">
                           <Badge variant={
                             lead.status === 'completed' ? 'completed' :
-                            lead.status === 'in_progress' ? 'pending' :
-                            'warning'
+                              lead.status === 'in_progress' ? 'pending' :
+                                'warning'
                           }>
                             {lead.status.replace('_', ' ')}
                           </Badge>
@@ -347,9 +346,9 @@ export default function AdminLeadsPage() {
                     </SelectContent>
                   </Select>
                   <Button
-                    onClick={() => updateStatusMutation.mutate({ 
-                      leadId: selectedLead.id, 
-                      status: newStatus 
+                    onClick={() => updateStatusMutation.mutate({
+                      leadId: selectedLead.id,
+                      status: newStatus
                     })}
                     disabled={updateStatusMutation.isPending}
                   >
@@ -403,6 +402,6 @@ export default function AdminLeadsPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </AdminSidebar>
+    </AdminLayout>
   );
 }

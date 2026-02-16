@@ -3,12 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmail, signUpWithEmail, signInWithGoogle, signOut, resetPassword, getAuthErrorMessage, AuthError } from '@/lib/firebase/auth';
-import { useAuth } from './useAuth';
+import { useAuth, User } from './useAuth';
 
 interface UseAuthActionsReturn {
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User | null>;
   registerUser: (data: RegisterData) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
+  loginWithGoogle: () => Promise<User | null>;
   logout: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
   loading: boolean;
@@ -34,14 +34,16 @@ export function useAuthActions(): UseAuthActionsReturn {
 
   const clearError = () => setError(null);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<User | null> => {
     setLoading(true);
     setError(null);
 
     try {
       await signInWithEmail(email, password);
-      await refreshUser();
+      // Wait for user data to be refreshed and return it
+      const user = await refreshUser();
       router.refresh();
+      return user;
     } catch (e) {
       const authError = e as AuthError;
       setError(getAuthErrorMessage(authError));
@@ -85,14 +87,15 @@ export function useAuthActions(): UseAuthActionsReturn {
     }
   };
 
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = async (): Promise<User | null> => {
     setLoading(true);
     setError(null);
 
     try {
       await signInWithGoogle();
-      await refreshUser();
+      const user = await refreshUser();
       router.refresh();
+      return user;
     } catch (e) {
       const authError = e as AuthError;
       setError(getAuthErrorMessage(authError));
@@ -108,10 +111,10 @@ export function useAuthActions(): UseAuthActionsReturn {
 
     try {
       await signOut();
-      
+
       // Clear server session
       await fetch('/api/auth/logout', { method: 'POST' });
-      
+
       await refreshUser();
       router.push('/');
       router.refresh();

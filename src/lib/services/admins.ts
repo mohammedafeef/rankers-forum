@@ -15,16 +15,16 @@ export async function createAdmin(
   password: string
 ): Promise<AdminWithUser> {
   const now = Timestamp.now();
-  
+
   // Create Firebase Auth user
   const userRecord = await adminAuth.createUser({
     email: data.email,
     password: password,
     displayName: `${data.firstName} ${data.lastName}`,
   });
-  
+
   const batch = adminDb.batch();
-  
+
   // Create user document
   const user: Omit<User, 'id'> = {
     role: 'admin',
@@ -39,9 +39,9 @@ export async function createAdmin(
     createdAt: now,
     updatedAt: now,
   };
-  
+
   batch.set(usersCollection.doc(userRecord.uid), user);
-  
+
   // Create admin profile
   const adminProfile: Omit<AdminProfile, 'userId'> = {
     employeeNumber: data.employeeNumber,
@@ -59,11 +59,11 @@ export async function createAdmin(
     createdAt: now,
     updatedAt: now,
   };
-  
+
   batch.set(adminsCollection.doc(userRecord.uid), adminProfile);
-  
+
   await batch.commit();
-  
+
   return {
     id: userRecord.uid,
     ...user,
@@ -76,11 +76,11 @@ export async function createAdmin(
  */
 export async function getAdminByUserId(userId: string): Promise<AdminProfile | null> {
   const doc = await adminsCollection.doc(userId).get();
-  
+
   if (!doc.exists) {
     return null;
   }
-  
+
   return { userId: doc.id, ...doc.data() } as AdminProfile;
 }
 
@@ -92,11 +92,11 @@ export async function getAdminWithUser(userId: string): Promise<AdminWithUser | 
     usersCollection.doc(userId).get(),
     adminsCollection.doc(userId).get(),
   ]);
-  
+
   if (!userDoc.exists || !adminDoc.exists) {
     return null;
   }
-  
+
   return {
     id: userDoc.id,
     ...userDoc.data(),
@@ -112,12 +112,12 @@ export async function getAllAdmins(): Promise<AdminWithUser[]> {
   const usersSnapshot = await usersCollection
     .where('role', '==', 'admin')
     .get();
-  
+
   const admins: AdminWithUser[] = [];;
-  
+
   for (const userDoc of usersSnapshot.docs) {
     const adminDoc = await adminsCollection.doc(userDoc.id).get();
-    
+
     if (adminDoc.exists) {
       admins.push({
         id: userDoc.id,
@@ -126,7 +126,7 @@ export async function getAllAdmins(): Promise<AdminWithUser[]> {
       } as AdminWithUser);
     }
   }
-  
+
   return admins;
 }
 
@@ -137,16 +137,16 @@ export async function getAvailableAdmins(): Promise<AdminWithUser[]> {
   const adminsSnapshot = await adminsCollection
     .where('isAvailable', '==', true)
     .get();
-  
+
   const availableAdmins: AdminWithUser[] = [];
-  
+
   for (const adminDoc of adminsSnapshot.docs) {
     const adminData = adminDoc.data() as Omit<AdminProfile, 'userId'>;
-    
+
     // Check if admin has capacity
     if (adminData.currentActiveLeads < adminData.maxActiveLeads) {
       const userDoc = await usersCollection.doc(adminDoc.id).get();
-      
+
       // Filter out super_admin users - only include regular admins
       if (userDoc.exists && (userDoc.data() as User).isActive && (userDoc.data() as User).role === 'admin') {
         availableAdmins.push({
@@ -157,7 +157,7 @@ export async function getAvailableAdmins(): Promise<AdminWithUser[]> {
       }
     }
   }
-  
+
   return availableAdmins;
 }
 
@@ -192,17 +192,17 @@ export async function setAdminAvailability(
  */
 export async function deactivateAdmin(userId: string): Promise<void> {
   const batch = adminDb.batch();
-  
+
   batch.update(usersCollection.doc(userId), {
     isActive: false,
     updatedAt: Timestamp.now(),
   });
-  
+
   batch.update(adminsCollection.doc(userId), {
     isAvailable: false,
     updatedAt: Timestamp.now(),
   });
-  
+
   await batch.commit();
 }
 
@@ -211,16 +211,16 @@ export async function deactivateAdmin(userId: string): Promise<void> {
  */
 export async function activateAdmin(userId: string): Promise<void> {
   const batch = adminDb.batch();
-  
+
   batch.update(usersCollection.doc(userId), {
     isActive: true,
     updatedAt: Timestamp.now(),
   });
-  
+
   batch.update(adminsCollection.doc(userId), {
     isAvailable: true,
     updatedAt: Timestamp.now(),
   });
-  
+
   await batch.commit();
 }
