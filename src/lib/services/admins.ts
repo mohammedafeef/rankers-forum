@@ -50,6 +50,7 @@ export async function createAdmin(
     jobType: data.jobType,
     noticePeriod: '',
     dateOfBirth: now, // Will be updated later
+    gender: 'male', // Default, will be updated later
     maritalStatus: '',
     bloodGroup: '',
     nationality: 'India',

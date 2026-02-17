@@ -30,7 +30,7 @@ const adminLinks = [
 ];
 
 interface AdminSidebarProps {
-  onLogoutClick: () => void;
+  onLogoutClick?: () => void;
 }
 
 export function AdminSidebar({ onLogoutClick }: AdminSidebarProps) {

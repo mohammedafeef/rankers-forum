@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, Search, UserPlus, Phone, Check } from 'lucide-react';
 import { AdminSidebar } from '@/components/layout';
@@ -47,6 +47,18 @@ interface Admin {
 }
 
 export default function SuperAdminCallbacksPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    }>
+      <SuperAdminCallbacksContent />
+    </Suspense>
+  );
+}
+
+function SuperAdminCallbacksContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -141,7 +153,8 @@ export default function SuperAdminCallbacksPage() {
   );
 
   return (
-    <AdminSidebar>
+    <>
+    <AdminSidebar/>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Callback Requests</h1>
@@ -293,6 +306,6 @@ export default function SuperAdminCallbacksPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </AdminSidebar>
+    </>
   );
 }
