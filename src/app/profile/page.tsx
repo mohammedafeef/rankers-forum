@@ -397,9 +397,10 @@ export default function ProfilePage() {
   // Use different layout based on role
   if (isAdminOrSuperAdmin) {
     return (
-      <AdminSidebar>
+      <>
+      <AdminSidebar onLogoutClick={()=>{}}/>
         {renderProfileContent()}
-      </AdminSidebar>
+     </>
     );
   }
 
